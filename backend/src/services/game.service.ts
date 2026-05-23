@@ -1,14 +1,15 @@
 import { prisma } from '../utils/prisma.js';
+import { AppError } from '../utils/errors.js';
 
 export class GameService {
   static async movePiece(roomId: string, userId: string, toX: number, toY: number) {
     // Single blocking query: read current state + update in one transaction
     const result = await prisma.$transaction(async (tx) => {
       const gameState = await tx.gameState.findUnique({ where: { roomId } });
-      if (!gameState) throw new Error('Game state not found');
+      if (!gameState) throw new AppError('Game state not found');
 
       const queue = (gameState.turnQueue as string[]) || [];
-      if (queue[0] !== userId) throw new Error('Not your turn');
+      if (queue[0] !== userId) throw new AppError('Not your turn');
 
       const isTarget = (toX === gameState.targetX && toY === gameState.targetY);
       const scoreIncr = isTarget ? 1 : 0;

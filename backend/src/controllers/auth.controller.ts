@@ -8,7 +8,7 @@ export class AuthController {
       const result = await AuthService.signup(req.body);
       ApiResponse.created(res, 'User registered successfully', result);
     } catch (error: any) {
-      ApiResponse.error(res, error.message);
+      ApiResponse.error(res, error.message, error);
     }
   }
 
@@ -17,7 +17,7 @@ export class AuthController {
       const result = await AuthService.login(req.body);
       ApiResponse.success(res, 'Login successful', result);
     } catch (error: any) {
-      ApiResponse.unauthorized(res, error.message);
+      ApiResponse.unauthorized(res, error.message, error);
     }
   }
 }

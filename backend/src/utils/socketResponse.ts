@@ -1,6 +1,7 @@
 import { Server } from 'socket.io';
 import { logger } from './logger.js';
 import { AuthSocket } from '../socket/auth.socket.js';
+import { AppError } from './errors.js';
 
 export class SocketResponse {
   /**
@@ -31,13 +32,23 @@ export class SocketResponse {
 
   /**
    * Logs and invokes an acknowledgement callback.
+   * Accepts optional `errorObj` to check if it's an operational error.
    */
   static acknowledge(
     socket: AuthSocket,
     callback: ((res: any) => void) | undefined,
-    response: { success: boolean; error?: string; [key: string]: any }
+    response: { success: boolean; error?: string; errorObj?: any; [key: string]: any }
   ) {
     const level = response.success ? 'info' : 'error';
+    
+    let displayError = response.error;
+    if (!response.success && response.error) {
+      const isOperational = response.errorObj && (response.errorObj.isOperational === true || response.errorObj instanceof AppError);
+      if (!isOperational) {
+        displayError = 'Something went wrong';
+      }
+    }
+
     logger.log(level, `[Socket Ack] [User: ${socket.userId || 'Guest'}] [Success: ${response.success}]`, {
       userId: socket.userId,
       socketId: socket.id,
@@ -45,8 +56,13 @@ export class SocketResponse {
       error: response.error,
       response: this.sanitizePayload(response),
     });
+
     if (callback) {
-      callback(response);
+      const { errorObj, ...clientResponse } = response;
+      if (!clientResponse.success) {
+        clientResponse.error = displayError;
+      }
+      callback(clientResponse);
     }
   }
 
@@ -54,13 +70,17 @@ export class SocketResponse {
    * Logs and emits a socket error event back to the socket.
    */
   static error(socket: AuthSocket, message: string, event = 'game_error', error?: any) {
+    const isOperational = error && (error.isOperational === true || error instanceof AppError);
+    const displayMessage = isOperational ? message : 'Something went wrong';
+
     logger.error(`[Socket Error] [User: ${socket.userId || 'Guest'}] [Event: ${event}] ${message}`, {
       userId: socket.userId,
       socketId: socket.id,
       event,
-      error: error?.message || error || message,
+      error: error?.stack || error?.message || error || message,
     });
-    return socket.emit(event, { success: false, message, error: error?.message || error });
+
+    return socket.emit(event, { success: false, message: displayMessage, error: displayMessage });
   }
 
   /**

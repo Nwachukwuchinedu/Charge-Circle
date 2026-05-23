@@ -1,4 +1,5 @@
 import { prisma } from '../utils/prisma.js';
+import { AppError } from '../utils/errors.js';
 
 interface ActiveUser {
   id: string;
@@ -46,8 +47,8 @@ export class RoomService {
       include: { gameStates: true }
     });
     
-    if (!room) throw new Error('Room not found');
-    if (room.status === 'finished') throw new Error('Game already finished');
+    if (!room) throw new AppError('Room not found');
+    if (room.status === 'finished') throw new AppError('Game already finished');
 
     if (!this.activeUsersMap.has(roomId)) {
       this.activeUsersMap.set(roomId, []);
@@ -62,7 +63,7 @@ export class RoomService {
     }
 
     const gameState = room.gameStates[0];
-    if (!gameState) throw new Error('Game state corrupted');
+    if (!gameState) throw new AppError('Game state corrupted');
 
     const queue = (gameState.turnQueue as string[]) || [];
     let updatedQueue = [...queue];
