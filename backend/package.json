@@ -1,0 +1,19 @@
+{
+  "name": "charge-circle-backend",
+  "version": "1.0.0",
+  "description": "Backend for Charge Circle Collaborative Grid game",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon --ignore database/ server.js"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}

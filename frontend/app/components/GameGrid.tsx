@@ -1,0 +1,275 @@
+'use client';
+
+import React, { useRef, useEffect, useState } from 'react';
+
+interface GameGridProps {
+  piece: { x: number; y: number };
+  target: { x: number; y: number };
+  boardSize: number;
+  myTurn: boolean;
+  onMove: (x: number, y: number) => void;
+}
+
+export default function GameGrid({ piece, target, boardSize = 10, myTurn, onMove }: GameGridProps) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [hoverTile, setHoverTile] = useState<{ x: number; y: number } | null>(null);
+
+  // Keep track of animated coordinates for interpolation
+  const animatedPiecePos = useRef<{ x: number; y: number }>({ x: piece.x, y: piece.y });
+  const pulseAnim = useRef<number>(0);
+
+  // Initialize animated position on mount or reset
+  useEffect(() => {
+    if (animatedPiecePos.current.x === undefined) {
+      animatedPiecePos.current = { x: piece.x, y: piece.y };
+    }
+  }, [piece]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let animationId: number;
+
+    const render = () => {
+      // Clear canvas
+      ctx.fillStyle = '#0b0c10'; // Deep dark cyber space
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      const tileSize = canvas.width / boardSize;
+
+      // 1. Draw Grid Lines
+      ctx.strokeStyle = 'rgba(99, 102, 241, 0.12)'; // Light indigo grid
+      ctx.lineWidth = 1;
+      for (let i = 0; i <= boardSize; i++) {
+        // Vertical lines
+        ctx.beginPath();
+        ctx.moveTo(i * tileSize, 0);
+        ctx.lineTo(i * tileSize, canvas.height);
+        ctx.stroke();
+
+        // Horizontal lines
+        ctx.beginPath();
+        ctx.moveTo(0, i * tileSize);
+        ctx.lineTo(canvas.width, i * tileSize);
+        ctx.stroke();
+      }
+
+      // 2. Draw Subtle Dots at Grid Intersections for Cyberpunk aesthetic
+      ctx.fillStyle = 'rgba(99, 102, 241, 0.3)';
+      for (let i = 1; i < boardSize; i++) {
+        for (let j = 1; j < boardSize; j++) {
+          ctx.beginPath();
+          ctx.arc(i * tileSize, j * tileSize, 1.5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+
+      // 3. Update pulse animation values
+      pulseAnim.current += 0.04;
+      const pulseRate = Math.sin(pulseAnim.current);
+      const pulseRadius = tileSize * 0.35 + pulseRate * 3;
+
+      // 4. Draw Charging Circle (Target)
+      const targetCenterX = target.x * tileSize + tileSize / 2;
+      const targetCenterY = target.y * tileSize + tileSize / 2;
+
+      // Glowing outer ring
+      ctx.shadowColor = '#10b981';
+      ctx.shadowBlur = 15 + pulseRate * 5;
+      ctx.strokeStyle = `rgba(16, 185, 129, ${0.4 + pulseRate * 0.15})`;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(targetCenterX, targetCenterY, tileSize * 0.45, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Pulsing target center
+      const targetGrad = ctx.createRadialGradient(
+        targetCenterX, targetCenterY, 2,
+        targetCenterX, targetCenterY, pulseRadius
+      );
+      targetGrad.addColorStop(0, 'rgba(16, 185, 129, 0.9)');
+      targetGrad.addColorStop(0.5, 'rgba(16, 185, 129, 0.4)');
+      targetGrad.addColorStop(1, 'rgba(16, 185, 129, 0)');
+      
+      ctx.fillStyle = targetGrad;
+      ctx.beginPath();
+      ctx.arc(targetCenterX, targetCenterY, pulseRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Draw goal crosshairs on Target
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      // Horizontal cross
+      ctx.moveTo(targetCenterX - tileSize * 0.2, targetCenterY);
+      ctx.lineTo(targetCenterX - tileSize * 0.1, targetCenterY);
+      ctx.moveTo(targetCenterX + tileSize * 0.1, targetCenterY);
+      ctx.lineTo(targetCenterX + tileSize * 0.2, targetCenterY);
+      // Vertical cross
+      ctx.moveTo(targetCenterX, targetCenterY - tileSize * 0.2);
+      ctx.lineTo(targetCenterX, targetCenterY - tileSize * 0.1);
+      ctx.moveTo(targetCenterX, targetCenterY + tileSize * 0.1);
+      ctx.lineTo(targetCenterX, targetCenterY + tileSize * 0.2);
+      ctx.stroke();
+
+      // 5. Interpolate Energy Orb (Piece) position
+      const targetPixelX = piece.x * tileSize + tileSize / 2;
+      const targetPixelY = piece.y * tileSize + tileSize / 2;
+
+      animatedPiecePos.current.x += (targetPixelX - animatedPiecePos.current.x) * 0.12;
+      animatedPiecePos.current.y += (targetPixelY - animatedPiecePos.current.y) * 0.12;
+
+      // Draw Energy Orb (Piece)
+      ctx.shadowColor = '#f97316'; // Neon orange glow
+      ctx.shadowBlur = 20;
+      
+      const orbGrad = ctx.createRadialGradient(
+        animatedPiecePos.current.x, animatedPiecePos.current.y, 2,
+        animatedPiecePos.current.x, animatedPiecePos.current.y, tileSize * 0.3
+      );
+      orbGrad.addColorStop(0, '#ffffff'); // Glowing white hot center
+      orbGrad.addColorStop(0.3, '#ffedd5'); // Light cream
+      orbGrad.addColorStop(0.7, '#f97316'); // Neon orange
+      orbGrad.addColorStop(1, '#ea580c'); // Deep orange
+
+      ctx.fillStyle = orbGrad;
+      ctx.beginPath();
+      ctx.arc(animatedPiecePos.current.x, animatedPiecePos.current.y, tileSize * 0.28, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Draw subtle orbital rings around Energy Orb
+      ctx.shadowBlur = 0; // Disable shadow for rings
+      ctx.strokeStyle = 'rgba(249, 115, 22, 0.4)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.arc(animatedPiecePos.current.x, animatedPiecePos.current.y, tileSize * 0.38, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // 6. Draw Hover Tile Highlight
+      if (hoverTile) {
+        const isAdjacent = 
+          Math.abs(hoverTile.x - piece.x) <= 1 && 
+          Math.abs(hoverTile.y - piece.y) <= 1 && 
+          (hoverTile.x !== piece.x || hoverTile.y !== piece.y);
+
+        if (myTurn && isAdjacent) {
+          // Highlight valid adjacent move (cyan glow)
+          ctx.shadowColor = '#06b6d4';
+          ctx.shadowBlur = 10;
+          ctx.strokeStyle = '#06b6d4';
+          ctx.lineWidth = 2;
+          ctx.fillStyle = 'rgba(6, 182, 212, 0.08)';
+        } else {
+          // Highlight invalid move (red borders, no glow)
+          ctx.shadowBlur = 0;
+          ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
+          ctx.lineWidth = 1.5;
+          ctx.fillStyle = 'rgba(239, 68, 68, 0.03)';
+        }
+        
+        ctx.beginPath();
+        ctx.roundRect(hoverTile.x * tileSize + 2, hoverTile.y * tileSize + 2, tileSize - 4, tileSize - 4, 6);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Reset shadow
+        ctx.shadowBlur = 0;
+      }
+
+      // 7. Draw Visual Link from Orb to Active Target
+      ctx.strokeStyle = 'rgba(99, 102, 241, 0.05)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(animatedPiecePos.current.x, animatedPiecePos.current.y);
+      ctx.lineTo(targetCenterX, targetCenterY);
+      ctx.stroke();
+      ctx.setLineDash([]); // Reset dash
+
+      animationId = requestAnimationFrame(render);
+    };
+
+    render();
+
+    return () => {
+      cancelAnimationFrame(animationId);
+    };
+  }, [piece, target, boardSize, myTurn, hoverTile]);
+
+  // Click handler to emit movement
+  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const tileSize = rect.width / boardSize;
+    const gridX = Math.floor(x / tileSize);
+    const gridY = Math.floor(y / tileSize);
+
+    if (gridX >= 0 && gridX < boardSize && gridY >= 0 && gridY < boardSize) {
+      // Validate adjacent coordinates
+      const isAdjacent =
+        Math.abs(gridX - piece.x) <= 1 &&
+        Math.abs(gridY - piece.y) <= 1 &&
+        (gridX !== piece.x || gridY !== piece.y);
+
+      if (myTurn && isAdjacent) {
+        onMove(gridX, gridY);
+      }
+    }
+  };
+
+  // Mouse move handler for live grid hover highlighting
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    const tileSize = rect.width / boardSize;
+    const gridX = Math.floor(x / tileSize);
+    const gridY = Math.floor(y / tileSize);
+
+    if (gridX >= 0 && gridX < boardSize && gridY >= 0 && gridY < boardSize) {
+      if (!hoverTile || hoverTile.x !== gridX || hoverTile.y !== gridY) {
+        setHoverTile({ x: gridX, y: gridY });
+      }
+    } else {
+      setHoverTile(null);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    setHoverTile(null);
+  };
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl border border-indigo-500/20 bg-[#0b0c10] p-4 shadow-2xl shadow-indigo-500/5">
+      {/* Visual background decorations for cyber console look */}
+      <div className="absolute top-2 left-2 h-2 w-2 rounded-full bg-indigo-500/50"></div>
+      <div className="absolute top-2 right-2 h-2 w-2 rounded-full bg-indigo-500/50"></div>
+      <div className="absolute bottom-2 left-2 h-2 w-2 rounded-full bg-indigo-500/50"></div>
+      <div className="absolute bottom-2 right-2 h-2 w-2 rounded-full bg-indigo-500/50"></div>
+
+      <canvas
+        ref={canvasRef}
+        width={500}
+        height={500}
+        onClick={handleCanvasClick}
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+        className={`w-full max-w-[500px] aspect-square rounded-lg border border-indigo-500/10 cursor-pointer ${
+          myTurn ? 'hover:shadow-lg hover:shadow-cyan-500/5' : 'cursor-not-allowed opacity-90'
+        }`}
+      />
+    </div>
+  );
+}
