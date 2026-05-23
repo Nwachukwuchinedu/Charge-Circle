@@ -1,16 +1,17 @@
 import { Request, Response, NextFunction } from 'express';
-import { AnyZodObject, ZodError } from 'zod';
+import { ZodSchema, ZodError } from 'zod';
+import { ApiResponse } from '../utils/apiResponse.js';
 
-export const validate = (schema: AnyZodObject) =>
+export const validate = (schema: ZodSchema) =>
   async (req: Request, res: Response, next: NextFunction) => {
     try {
       await schema.parseAsync(req.body);
       next();
     } catch (error) {
       if (error instanceof ZodError) {
-        res.status(400).json({ error: 'Validation failed', details: error.errors });
+        ApiResponse.error(res, 'Validation failed', error.issues, 400);
       } else {
-        res.status(400).json({ error: 'Validation error' });
+        ApiResponse.error(res, 'Validation error', error, 400);
       }
     }
   };

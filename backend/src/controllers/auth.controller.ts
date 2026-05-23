@@ -1,22 +1,23 @@
 import { Request, Response } from 'express';
 import { AuthService } from '../services/auth.service.js';
+import { ApiResponse } from '../utils/apiResponse.js';
 
 export class AuthController {
   static async signup(req: Request, res: Response) {
     try {
       const result = await AuthService.signup(req.body);
-      res.status(201).json(result);
+      ApiResponse.created(res, 'User registered successfully', result);
     } catch (error: any) {
-      res.status(400).json({ error: error.message });
+      ApiResponse.error(res, error.message);
     }
   }
 
   static async login(req: Request, res: Response) {
     try {
       const result = await AuthService.login(req.body);
-      res.status(200).json(result);
+      ApiResponse.success(res, 'Login successful', result);
     } catch (error: any) {
-      res.status(401).json({ error: error.message });
+      ApiResponse.unauthorized(res, error.message);
     }
   }
 }
