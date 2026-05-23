@@ -4,40 +4,23 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../hooks/useAuth';
 import { useSocket } from '../hooks/useSocket';
-import { Room } from './types';
+import { useRoomList } from '../hooks/useRoomList';
 import { LogOut, Plus, Users, Play } from 'lucide-react';
 
 export default function Lobby() {
   const { user, loading, logout } = useAuth();
   const { socket, connected } = useSocket();
   const router = useRouter();
-  const [rooms, setRooms] = useState<Room[]>([]);
   const [newRoomName, setNewRoomName] = useState('');
   const [creating, setCreating] = useState(false);
+
+  const { data: rooms = [], isLoading: isLoadingRooms } = useRoomList(socket, connected);
 
   useEffect(() => {
     if (!loading && !user) {
       router.push('/login');
     }
   }, [user, loading, router]);
-
-  const fetchRooms = () => {
-    if (socket) {
-      socket.emit('get_rooms', {}, (data: any) => {
-         if (data && data.rooms) setRooms(data.rooms);
-      });
-    }
-  };
-
-  useEffect(() => {
-    if (socket && connected) {
-      fetchRooms();
-      socket.on('rooms_updated', fetchRooms);
-    }
-    return () => {
-      if (socket) socket.off('rooms_updated', fetchRooms);
-    };
-  }, [socket, connected]);
 
   const handleCreateRoom = (e: React.FormEvent) => {
     e.preventDefault();
@@ -125,7 +108,11 @@ export default function Lobby() {
             <Users size={20} /> Active Grid Nodes
           </h2>
           
-          {rooms.length === 0 ? (
+          {isLoadingRooms ? (
+            <div className="bg-[#0d0e12]/50 border border-zinc-800/30 border-dashed rounded-2xl p-12 text-center text-zinc-500">
+              Loading active nodes...
+            </div>
+          ) : rooms.length === 0 ? (
             <div className="bg-[#0d0e12]/50 border border-zinc-800/30 border-dashed rounded-2xl p-12 text-center text-zinc-500">
               No active rooms available. Initialize a new room to start.
             </div>

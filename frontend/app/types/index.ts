@@ -25,6 +25,14 @@ export interface Room {
   gameStates: GameState[];
 }
 
+export interface GameStateDelta {
+  piece?: { x: number; y: number };
+  activePlayer?: string;
+  score?: number;
+  lastMove?: { userId: string; from: { x: number, y: number }; to: { x: number, y: number } };
+  gridCharged?: boolean;
+}
+
 export interface ChatMessage {
   id: number;
   roomId: string;

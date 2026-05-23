@@ -3,6 +3,9 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
+import rateLimit from 'express-rate-limit';
+import { setupRedis } from './utils/redis.js';
+import { BroadcastService } from './services/broadcast.service.js';
 
 
 const app = express();
@@ -10,6 +13,15 @@ const httpServer = createServer(app);
 
 app.use(cors());
 app.use(express.json());
+
+// API Rate Limiter
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per 15 minutes
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api', apiLimiter);
 
 const io = new Server(httpServer, {
   cors: {
@@ -22,6 +34,10 @@ import authRoutes from './routes/auth.routes.js';
 
 // Setup routes here
 app.use('/api/auth', authRoutes);
+
+// Setup Socket.io and Redis Adapter
+setupRedis(io);
+BroadcastService.initialize(io);
 import { socketAuthMiddleware, AuthSocket } from './socket/auth.socket.js';
 import { setupRoomHandlers } from './socket/room.handler.js';
 import { setupGameHandlers } from './socket/game.handler.js';
@@ -35,6 +51,16 @@ io.on('connection', (socket) => {
   setupRoomHandlers(io, socket as AuthSocket);
   setupGameHandlers(io, socket as AuthSocket);
   setupChatHandlers(io, socket as AuthSocket);
+
+  socket.on('disconnecting', () => {
+    for (const roomId of socket.rooms) {
+      if (roomId !== socket.id) {
+        import('./services/room.service.js').then(({ RoomService }) => {
+          RoomService.markUserDisconnected(roomId, (socket as AuthSocket).userId!);
+        });
+      }
+    }
+  });
 
   socket.on('disconnect', () => {
     console.log(`User disconnected: ${(socket as AuthSocket).userId}`);

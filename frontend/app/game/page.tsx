@@ -7,7 +7,7 @@ import { useAuth } from '../../hooks/useAuth';
 import GameGrid from '../components/GameGrid';
 import QueuePanel from '../components/QueuePanel';
 import ChatPanel from '../components/ChatPanel';
-import { GameState, Room } from '../types';
+import { GameState, Room, GameStateDelta } from '../types';
 
 export default function Game() {
   const searchParams = useSearchParams();
@@ -42,8 +42,25 @@ export default function Game() {
         }
       });
 
-      socket.on('game_state_update', (state: GameState) => {
-        setGameState(state);
+      socket.on('game_state_delta', (delta: GameStateDelta) => {
+        setGameState(prev => {
+          if (!prev) return null;
+          
+          // Patch the queue (rotate if active player changed)
+          let nextQueue = [...prev.turnQueue];
+          if (delta.activePlayer && prev.turnQueue[0] !== delta.activePlayer) {
+             const oldActive = nextQueue.shift();
+             if (oldActive) nextQueue.push(oldActive);
+          }
+          
+          return {
+            ...prev,
+            pieceX: delta.piece ? delta.piece.x : prev.pieceX,
+            pieceY: delta.piece ? delta.piece.y : prev.pieceY,
+            score: delta.score !== undefined ? delta.score : prev.score,
+            turnQueue: nextQueue
+          };
+        });
       });
 
       socket.on('game_error', (data: { message: string }) => {
@@ -55,7 +72,7 @@ export default function Game() {
     return () => {
       if (socket) {
         socket.off('room_state_update');
-        socket.off('game_state_update');
+        socket.off('game_state_delta');
         socket.off('game_error');
       }
     };

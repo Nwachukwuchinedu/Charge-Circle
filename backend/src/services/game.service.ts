@@ -47,6 +47,9 @@ export class GameService {
       }
     });
 
-    return updatedState;
+    return {
+      state: updatedState,
+      from: { x: gameState.pieceX, y: gameState.pieceY }
+    };
   }
 }

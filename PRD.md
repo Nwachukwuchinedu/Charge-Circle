@@ -15,7 +15,7 @@ A real-time multiplayer collaborative grid game where up to **1,000 operators** 
 
 | Layer | Technology | Purpose |
 |-------|-----------|---------|
-| Frontend | Next.js + HTML Canvas + Tailwind CSS + Framer Motion | UI rendering, game board, real-time client, landing page animations |
+| Frontend | Next.js + HTML Canvas + Tailwind CSS + Framer Motion + TanStack Query + Zustand | UI rendering, game board, real-time client, landing page animations, server-state caching, UI state management |
 | Backend | Node.js + Express + Socket.io | WebSocket server, game logic, queue management |
 | Database | PostgreSQL + Prisma ORM | Type-safe DB access, migrations, persistent storage |
 | Containerization | Docker + docker-compose | One-command setup, reproducible environments |
@@ -58,7 +58,15 @@ A polished, conversion-focused landing page that lives at `/` and sells the expe
 - Dark cyberpunk theme consistent with the game UI (indigo/cyan/orange palette, glassmorphism cards, subtle grid border overlays).
 - Route: `/` (public landing), separate from `/game` (authenticated game page).
 
-#### 2. Authentication & User System
+#### 2. TanStack Query + Zustand (State Architecture)
+State management split by concern — no more raw `useState` for server data.
+
+- **TanStack Query** for all server-state: game state polling, room list, auth status, leaderboard. Provides automatic cache deduplication, stale-while-revalidate (instant UI from cache while refetching), background refetching, and request deduplication — critical when 10K clients poll endpoints.
+- **Zustand** for pure UI state: active modal/drawer open/closed, selected room ID, connection status overlay visibility, sidebar collapsed, theme preferences, error toast queue. No providers, no boilerplate, no re-renders outside subscribers.
+- **Boundary:** Server data → TanStack Query. UI-only ephemeral state → Zustand. Never mix them. This prevents the common mistake of caching server data in Zustand and ending up with stale reads.
+- **TanStack Query devtools** enabled in development for debugging cache state, stale times, and refetch intervals.
+
+#### 3. Authentication & User System
 - **Signup with nickname, email, and password** — persistent identity across sessions.
 - **Login with email + password** — returns a JWT token stored in `localStorage`.
 - **Password hashing** via `bcrypt` (never stored in plaintext).
@@ -67,13 +75,13 @@ A polished, conversion-focused landing page that lives at `/` and sells the expe
 - **Auth UI:** Login/signup forms with validation, auto-redirect to game on success.
 - The auto-generated `Node-XXX` fallback is removed — players must sign up to play.
 
-#### 2. Real-Time Chat System
+#### 4. Real-Time Chat System
 - **In-game chat** alongside the board so players can coordinate.
 - Messages broadcast via Socket.io with `send_chat` / `chat_message` events.
 - Chat history persisted in PostgreSQL for message retention.
 - System messages (e.g., "Player_X scored!", "Player_Y joined the grid").
 
-#### 2. Multiple Game Rooms
+#### 5. Multiple Game Rooms
 - Players can **create or join** named rooms instead of one global board.
 - Each room has its own isolated game state, queue, and chat.
 - Room listing UI with player count display.
@@ -81,34 +89,34 @@ A polished, conversion-focused landing page that lives at `/` and sells the expe
 - Room owner can start/reset the game.
 - **Player limit per room:** configurable on creation — set a max number (e.g. 10, 50) or leave as `null`/`0` for unlimited. Room is locked when full.
 
-#### 3. PostgreSQL + Prisma ORM (replacing JSON files)
+#### 6. PostgreSQL + Prisma ORM (replacing JSON files)
 - **Prisma schema** defines all models: `User`, `Room`, `GameState`, `ChatMessage`, `MoveHistory`.
 - **Type-safe queries** — Prisma Client generates TypeScript types from the schema.
 - **Migrations via `npx prisma migrate dev --name <descriptive_name>`** — never `db push`.
 - Migration files tracked in Git under `backend/prisma/migrations/`.
 - Prisma Studio for visual DB inspection (`npx prisma studio`).
 
-#### 4. Move History & Replay
+#### 7. Move History & Replay
 - Every move logged to `move_history` table (player, coordinates, timestamp, room).
 - Replay mode: playback the entire move sequence of a game session.
 - Step-forward/step-backward controls in replay UI.
 
-#### 5. Docker + docker-compose
+#### 8. Docker + docker-compose
 - `Dockerfile` for frontend and backend.
-- `docker-compose.yml` wiring frontend, backend, PostgreSQL.
+- `docker-compose.yml` wiring frontend, backend, PostgreSQL, Redis.
 - `.env` configuration with sensible defaults.
 - One command: `docker compose up` to run everything.
 
-#### 6. Test Suite
+#### 9. Test Suite
 - **Backend:** Unit tests for queue logic, move validation; integration tests for Socket.io events and API endpoints.
 - **Frontend:** Component tests for GameGrid, QueuePanel; hook tests for socket connection logic.
 - Coverage reporting.
 
-#### 7. GitHub Actions CI/CD
+#### 10. GitHub Actions CI/CD
 - Run tests, linting, type-checking on every push/PR.
 - Optional: Docker image build and push.
 
-#### 8. Admin Dashboard
+#### 11. Admin Dashboard
 - Real-time analytics: active connections, moves/sec, score history.
 - Room management (view/cancel games).
 - Basic moderation (kick, mute).
@@ -315,13 +323,19 @@ charge-circle/
 │   │   │   ├── QueuePanel.tsx
 │   │   │   ├── ChatPanel.tsx
 │   │   │   └── RoomList.tsx
+│   │   ├── stores/              # Zustand stores (UI state only)
+│   │   │   ├── ui.store.ts       # modals, sidebar, theme, connection overlay
+│   │   │   └── room.store.ts     # selected room, filter state
 │   │   ├── hooks/
 │   │   │   ├── useSocket.ts
 │   │   │   ├── useAuth.ts
+│   │   │   ├── useGameState.ts   # TanStack Query wrapper for game state
+│   │   │   ├── useRoomList.ts    # TanStack Query wrapper for room list
 │   │   │   └── useAnimatedCounter.ts
 │   │   ├── lib/
 │   │   │   ├── socket.ts
-│   │   │   └── api.ts
+│   │   │   ├── api.ts            # Axios/fetch instance
+│   │   │   └── queryClient.ts    # TanStack Query client config
 │   │   ├── types/
 │   │   │   └── index.ts
 │   │   ├── layout.tsx
@@ -434,38 +448,153 @@ All Socket.io event payloads and HTTP request bodies are validated against their
 
 ```mermaid
 graph TD
-    Client[Browser Client] -->|HTTP| Auth[Auth Module]
-    Client -->|Socket.io (JWT)| WS[WebSocket Server]
+    LB[Load Balancer] --> N1[Node Instance 1]
+    LB --> N2[Node Instance 2]
+    LB --> N3[Node Instance 3]
+    N1 --> Auth[Auth Module]
+    N2 --> Auth
+    N3 --> Auth
     Auth --> DB[(PostgreSQL)]
-    WS --> QM[Queue Manager]
-    WS --> GSM[Game State Manager]
-    WS --> Chat[Chat Handler]
-    WS --> RoomM[Room Manager]
+    N1 -->|Socket.io| R[(Redis Pub/Sub)]
+    N2 -->|Socket.io| R
+    N3 -->|Socket.io| R
+    N1 --> QM[Queue Manager]
+    N2 --> QM
+    N3 --> QM
+    N1 --> GSM[Game State Manager]
+    N2 --> GSM
+    N3 --> GSM
+    N1 --> Chat[Chat Handler]
+    N2 --> Chat
+    N3 --> Chat
+    N1 --> RoomM[Room Manager]
+    N2 --> RoomM
+    N3 --> RoomM
     GSM --> DB
-    QM --> DB
+    QM --> R
     Chat --> DB
-    RoomM --> DB
-    GSM --> Redis[Redis Cache - Future]
+    RoomM --> R
 ```
 
 ### Module Responsibilities
 1. **Auth Module:** Signup/login HTTP endpoints, password hashing (bcrypt), JWT generation and verification, token middleware for WebSocket connections.
-2. **WebSocket Server:** Authenticated connection management, event routing, broadcasting.
-3. **Queue Manager:** FIFO queue rotation, turn validation, counter updates.
-4. **Game State Manager:** Piece position, target spawning, score tracking, move validation.
+2. **WebSocket Server (per instance):** Authenticated connection management, event routing, broadcasting via Redis adapter.
+3. **Queue Manager:** FIFO queue rotation, turn validation, counter updates. Active queue in memory, metadata in Redis.
+4. **Game State Manager:** Piece position, target spawning, score tracking, move validation. Throttled broadcast ticks per room.
 5. **Chat Handler:** Message relay, persistence, system messages.
-6. **Room Manager:** Room lifecycle, isolated game instances, room listing.
+6. **Room Manager:** Room lifecycle, isolated game instances, room listing. Stores room metadata in Redis for cross-instance access.
 7. **Database Layer (Prisma ORM):** Type-safe query client, schema management, migration generation, connection pooling via Prisma Client.
+8. **Redis Layer:** Socket.io pub/sub adapter, queue metadata cache, room registry, cross-instance state sync.
 
 ---
 
-## Scalability & Performance
+## Scalability & Performance (10,000+ Users)
 
-- **In-memory game state** with periodic PostgreSQL persistence (not on every move).
-- **Socket.io rooms** isolate broadcasts per game room (avoids global fan-out).
-- **Rate limiting** on move_piece and chat events to prevent spam.
-- **Connection pooling** for PostgreSQL to handle concurrent reads/writes.
-- **Future:** Redis pub/sub for horizontal scaling across multiple Node.js instances.
+The architecture is designed to handle 10,000+ concurrent users without degrading server performance or freezing the client. Every layer is optimized to reduce work per user and per event.
+
+### 1. Throttled Broadcasts (Biggest Win)
+
+**Problem:** Emitting `game_state` to all room members on every move = 10,000 serializations/second.
+
+**Solution:** Each room runs a **broadcast tick** every 100ms via `setInterval`. Moves update in-memory state immediately, but the broadcast only fires once per tick, sending the latest state snapshot. This collapses N moves/second into 10 broadcasts/second regardless of how many users are playing.
+
+```
+Before:  move → io.to(room).emit('game_state', ...)      // 100 emits/s for 100 moves
+After:   move → update in-memory state → tick emits latest  // 10 emits/s total
+```
+
+### 2. Delta State Updates (Stop Sending Everything)
+
+**Problem:** Sending the full queue array (10K users) on every update is 10MB+ per broadcast.
+
+**Solution:** Only send what changed:
+
+```typescript
+interface GameStateDelta {
+  piece?:      { x: number; y: number };
+  activePlayer?: string;
+  score?:      number;
+  lastMove?:   { userId: string; from: { x, y }; to: { x, y } };
+  gridCharged?: boolean;
+}
+```
+
+The full state is sent on initial join. After that, only deltas. The client patches its local state from deltas. Queue counters and positions are computed locally — *never* broadcast in full.
+
+### 3. Redis Pub/Sub + Socket.io Redis Adapter
+
+**Problem:** A single Node.js process maxes out at ~10K concurrent connections (V8 memory, event loop pressure).
+
+**Solution:** Horizontal scaling with the Socket.io Redis adapter:
+
+```mermaid
+graph TD
+    LB[Load Balancer] --> N1[Node Instance 1]
+    LB --> N2[Node Instance 2]
+    LB --> N3[Node Instance 3]
+    N1 --> R[(Redis)]
+    N2 --> R
+    N3 --> R
+    R -->|pub/sub| N1
+    R -->|pub/sub| N2
+    R -->|pub/sub| N3
+```
+
+- Multiple Node instances behind a load balancer.
+- Socket.io Redis adapter forwards events between instances.
+- Redis stores: room membership, user sockets map, queue state.
+- Each instance handles ~4K connections, scales horizontally to 50K+.
+
+### 4. In-Memory Queue with Redis Fallback
+
+**Problem:** 10K user objects in a Node array = frequent GC pauses.
+
+**Solution:**
+
+- **Active queue** (players waiting for their turn in the current minute): kept in a fast in-memory `Map<roomId, userId[]>` per room. Size is capped at room's `maxPlayers` (typically 10–50).
+- **User metadata** (counter, last move timestamp, online status): stored in Redis hashes (`HSET room:xxx:users userId counter`).
+- Only active waiters are in memory. Historical players are lazy-loaded from Redis on rejoin.
+
+### 5. Lazy Cleanup (No Per-User Timers)
+
+**Problem:** 10K `setTimeout` for disconnect grace periods = 10K timer slots in the event loop.
+
+**Solution:** Remove per-user timers entirely. Instead, a **cleanup sweep** runs every 30 seconds:
+
+```typescript
+setInterval(() => {
+  for (const room of rooms) {
+    for (const user of room.users) {
+      if (!user.online && Date.now() - user.disconnectedAt > 30_000) {
+        room.removeUser(user.id);
+      }
+    }
+  }
+}, 30_000);
+```
+
+This reduces timer overhead from O(n) to O(1) — a fixed 2 checks per 30 seconds regardless of user count.
+
+### 6. Frontend: TanStack Query Caching
+
+**Problem:** 10K clients polling `/api/status` every 3 seconds = 3,333 req/s.
+
+**Solution:** TanStack Query handles this automatically:
+- **Deduplication:** 10K clients on the same page share one network request if the component mounts simultaneously.
+- **Stale-while-revalidate:** UI renders cached data instantly, refetches in background. No loading spinners.
+- **Global `staleTime: 10_000`** for non-critical endpoints so they only refetch every 10s regardless of component mount count.
+- **`refetchOnWindowFocus: false`** in production to prevent focus storms.
+
+### 7. Infrastructure Hardening
+
+| Concern | Solution |
+|---------|----------|
+| Rate limiting | `express-rate-limit` + `socket.io-rate-limit` — 10 moves/min per user, 30 chat messages/min |
+| DB connection pool | Prisma with `connection_limit=10` — shared across all requests, no per-connection overhead |
+| Server-sent keepalive | Socket.io ping/pong every 25s to detect dead clients without TCP timeout |
+| Payload compression | Gzip on Express + Socket.io per-message deflate |
+| Static assets | Next.js output cached at CDN level (Vercel, Cloudflare) |
+| Graceful degradation | If Redis goes down, each instance falls back to in-memory-only mode (single-instance degraded state) |
 
 ---
 
