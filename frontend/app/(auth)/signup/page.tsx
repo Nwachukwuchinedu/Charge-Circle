@@ -24,7 +24,7 @@ export default function Signup() {
     try {
       const response = await api.post('/auth/signup', { nickname, email, password });
       login(response.data.token, response.data.user);
-      router.push('/game');
+      router.push('/');
     } catch (err: any) {
       setError(err.message);
     } finally {
