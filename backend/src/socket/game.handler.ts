@@ -15,7 +15,7 @@ export const setupGameHandlers = (io: Server, socket: AuthSocket) => {
       
       BroadcastService.queueDelta(data.roomId, {
         piece: { x: result.state.pieceX, y: result.state.pieceY },
-        activePlayer: result.state.turnQueue[0] as string,
+        activePlayer: (result.state.turnQueue as string[])?.[0] || '',
         score: result.state.score,
         lastMove: { 
           userId: socket.userId!, 
