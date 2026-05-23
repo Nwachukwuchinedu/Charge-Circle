@@ -17,7 +17,7 @@ export class AuthService {
       },
     });
 
-    const token = signToken(user.id);
+    const token = signToken(user.id, user.nickname);
     return { token, user: { id: user.id, email: user.email, nickname: user.nickname } };
   }
 
@@ -28,7 +28,7 @@ export class AuthService {
     const valid = await bcrypt.compare(data.password, user.passwordHash);
     if (!valid) throw new Error('Invalid credentials');
 
-    const token = signToken(user.id);
+    const token = signToken(user.id, user.nickname);
     return { token, user: { id: user.id, email: user.email, nickname: user.nickname } };
   }
 }

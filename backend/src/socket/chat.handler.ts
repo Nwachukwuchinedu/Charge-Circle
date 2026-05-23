@@ -9,8 +9,21 @@ export const setupChatHandlers = (io: Server, socket: AuthSocket) => {
       if (!throttleSocket(`chat_${socket.userId}`, 500)) {
         return; // Max 2 messages per second
       }
-      const chatMsg = await ChatService.saveMessage(data.roomId, socket.userId!, data.message);
-      io.to(data.roomId).emit('chat_message', chatMsg);
+
+      // Emit optimistically — don't wait for DB
+      const optimisticMsg = {
+        id: Date.now(),
+        roomId: data.roomId,
+        userId: socket.userId,
+        message: data.message,
+        createdAt: new Date().toISOString(),
+        user: { nickname: socket.nickname || 'Player' }
+      };
+      io.to(data.roomId).emit('chat_message', optimisticMsg);
+
+      // Persist in background (fire-and-forget)
+      ChatService.saveMessage(data.roomId, socket.userId!, data.message)
+        .catch(err => console.error('[Chat] Failed to persist message:', err.message));
     } catch (error: any) {
       socket.emit('game_error', { message: error.message });
     }

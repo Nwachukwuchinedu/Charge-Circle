@@ -3,6 +3,7 @@ import { verifyToken } from '../utils/jwt.js';
 
 export interface AuthSocket extends Socket {
   userId?: string;
+  nickname?: string;
 }
 
 export const socketAuthMiddleware = (socket: AuthSocket, next: (err?: Error) => void) => {
@@ -17,5 +18,6 @@ export const socketAuthMiddleware = (socket: AuthSocket, next: (err?: Error) => 
   }
 
   socket.userId = decoded.userId;
+  socket.nickname = decoded.nickname || 'Player';
   next();
 };
