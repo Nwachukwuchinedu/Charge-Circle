@@ -34,36 +34,38 @@ export default function GameGrid({ piece, target, boardSize = 10, myTurn, onMove
     let animationId: number;
 
     const render = () => {
-      // Clear canvas
-      ctx.fillStyle = '#0b0c10'; // Deep dark cyber space
+      // Clear canvas (unused here since we fill every square, but good default)
+      ctx.fillStyle = '#1a0f0a'; 
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       const tileSize = canvas.width / boardSize;
 
-      // 1. Draw Grid Lines
-      ctx.strokeStyle = 'rgba(99, 102, 241, 0.12)'; // Light indigo grid
-      ctx.lineWidth = 1;
-      for (let i = 0; i <= boardSize; i++) {
-        // Vertical lines
-        ctx.beginPath();
-        ctx.moveTo(i * tileSize, 0);
-        ctx.lineTo(i * tileSize, canvas.height);
-        ctx.stroke();
+      // 1. Draw Checkerboard Squares (Chess Board Color Theme)
+      // Light squares: #eeeed2 (cream), Dark squares: #769656 (green)
+      for (let row = 0; row < boardSize; row++) {
+        for (let col = 0; col < boardSize; col++) {
+          const isLight = (row + col) % 2 === 0;
+          ctx.fillStyle = isLight ? '#eeeed2' : '#769656';
+          ctx.fillRect(col * tileSize, row * tileSize, tileSize, tileSize);
 
-        // Horizontal lines
-        ctx.beginPath();
-        ctx.moveTo(0, i * tileSize);
-        ctx.lineTo(canvas.width, i * tileSize);
-        ctx.stroke();
-      }
+          // Draw Rank numbers (10 to 1) on the left edge of column 0
+          if (col === 0) {
+            ctx.fillStyle = isLight ? '#769656' : '#eeeed2';
+            ctx.font = 'bold 11px system-ui, -apple-system, sans-serif';
+            ctx.textBaseline = 'top';
+            ctx.textAlign = 'left';
+            ctx.fillText((boardSize - row).toString(), col * tileSize + 4, row * tileSize + 4);
+          }
 
-      // 2. Draw Subtle Dots at Grid Intersections for Cyberpunk aesthetic
-      ctx.fillStyle = 'rgba(99, 102, 241, 0.3)';
-      for (let i = 1; i < boardSize; i++) {
-        for (let j = 1; j < boardSize; j++) {
-          ctx.beginPath();
-          ctx.arc(i * tileSize, j * tileSize, 1.5, 0, Math.PI * 2);
-          ctx.fill();
+          // Draw File letters (a to j) on the bottom edge of the last row
+          if (row === boardSize - 1) {
+            ctx.fillStyle = isLight ? '#769656' : '#eeeed2';
+            ctx.font = 'bold 11px system-ui, -apple-system, sans-serif';
+            ctx.textBaseline = 'bottom';
+            ctx.textAlign = 'right';
+            const letter = String.fromCharCode(97 + col); // 97 is 'a'
+            ctx.fillText(letter, (col + 1) * tileSize - 4, (row + 1) * tileSize - 4);
+          }
         }
       }
 
@@ -76,13 +78,19 @@ export default function GameGrid({ piece, target, boardSize = 10, myTurn, onMove
       const targetCenterX = target.x * tileSize + tileSize / 2;
       const targetCenterY = target.y * tileSize + tileSize / 2;
 
+      // Draw semi-transparent dark backdrop for target so green glow is highly visible on light squares
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+      ctx.beginPath();
+      ctx.arc(targetCenterX, targetCenterY, tileSize * 0.43, 0, Math.PI * 2);
+      ctx.fill();
+
       // Glowing outer ring
       ctx.shadowColor = '#10b981';
       ctx.shadowBlur = 15 + pulseRate * 5;
-      ctx.strokeStyle = `rgba(16, 185, 129, ${0.4 + pulseRate * 0.15})`;
-      ctx.lineWidth = 3;
+      ctx.strokeStyle = `rgba(16, 185, 129, ${0.75 + pulseRate * 0.15})`;
+      ctx.lineWidth = 3.5;
       ctx.beginPath();
-      ctx.arc(targetCenterX, targetCenterY, tileSize * 0.45, 0, Math.PI * 2);
+      ctx.arc(targetCenterX, targetCenterY, tileSize * 0.42, 0, Math.PI * 2);
       ctx.stroke();
 
       // Pulsing target center
@@ -90,8 +98,8 @@ export default function GameGrid({ piece, target, boardSize = 10, myTurn, onMove
         targetCenterX, targetCenterY, 2,
         targetCenterX, targetCenterY, pulseRadius
       );
-      targetGrad.addColorStop(0, 'rgba(16, 185, 129, 0.9)');
-      targetGrad.addColorStop(0.5, 'rgba(16, 185, 129, 0.4)');
+      targetGrad.addColorStop(0, 'rgba(16, 185, 129, 0.95)');
+      targetGrad.addColorStop(0.5, 'rgba(16, 185, 129, 0.55)');
       targetGrad.addColorStop(1, 'rgba(16, 185, 129, 0)');
       
       ctx.fillStyle = targetGrad;
@@ -122,6 +130,14 @@ export default function GameGrid({ piece, target, boardSize = 10, myTurn, onMove
       animatedPiecePos.current.x += (targetPixelX - animatedPiecePos.current.x) * 0.12;
       animatedPiecePos.current.y += (targetPixelY - animatedPiecePos.current.y) * 0.12;
 
+      // Draw 3D shadow for Energy Orb (stands out on board)
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
+      ctx.shadowBlur = 8;
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
+      ctx.beginPath();
+      ctx.arc(animatedPiecePos.current.x + 3, animatedPiecePos.current.y + 4, tileSize * 0.25, 0, Math.PI * 2);
+      ctx.fill();
+
       // Draw Energy Orb (Piece)
       ctx.shadowColor = '#f97316'; // Neon orange glow
       ctx.shadowBlur = 20;
@@ -142,10 +158,10 @@ export default function GameGrid({ piece, target, boardSize = 10, myTurn, onMove
 
       // Draw subtle orbital rings around Energy Orb
       ctx.shadowBlur = 0; // Disable shadow for rings
-      ctx.strokeStyle = 'rgba(249, 115, 22, 0.4)';
+      ctx.strokeStyle = 'rgba(249, 115, 22, 0.5)';
       ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.arc(animatedPiecePos.current.x, animatedPiecePos.current.y, tileSize * 0.38, 0, Math.PI * 2);
+      ctx.arc(animatedPiecePos.current.x, animatedPiecePos.current.y, tileSize * 0.36, 0, Math.PI * 2);
       ctx.stroke();
 
       // 6. Draw Hover Tile Highlight
@@ -156,18 +172,18 @@ export default function GameGrid({ piece, target, boardSize = 10, myTurn, onMove
           (hoverTile.x !== piece.x || hoverTile.y !== piece.y);
 
         if (myTurn && isAdjacent) {
-          // Highlight valid adjacent move (cyan glow)
-          ctx.shadowColor = '#06b6d4';
+          // Highlight valid adjacent move (glowing gold/yellow, like chess square selection)
+          ctx.shadowColor = '#fbbf24';
           ctx.shadowBlur = 10;
-          ctx.strokeStyle = '#06b6d4';
-          ctx.lineWidth = 2;
-          ctx.fillStyle = 'rgba(6, 182, 212, 0.08)';
+          ctx.strokeStyle = '#fbbf24';
+          ctx.lineWidth = 2.5;
+          ctx.fillStyle = 'rgba(251, 191, 36, 0.12)';
         } else {
           // Highlight invalid move (red borders, no glow)
           ctx.shadowBlur = 0;
-          ctx.strokeStyle = 'rgba(239, 68, 68, 0.4)';
+          ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)';
           ctx.lineWidth = 1.5;
-          ctx.fillStyle = 'rgba(239, 68, 68, 0.03)';
+          ctx.fillStyle = 'rgba(239, 68, 68, 0.05)';
         }
         
         ctx.beginPath();
@@ -179,9 +195,9 @@ export default function GameGrid({ piece, target, boardSize = 10, myTurn, onMove
         ctx.shadowBlur = 0;
       }
 
-      // 7. Draw Visual Link from Orb to Active Target
-      ctx.strokeStyle = 'rgba(99, 102, 241, 0.05)';
-      ctx.lineWidth = 1;
+      // 7. Draw Visual Link from Orb to Active Target (darker dashed line on chess squares)
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.25)';
+      ctx.lineWidth = 1.5;
       ctx.setLineDash([4, 4]);
       ctx.beginPath();
       ctx.moveTo(animatedPiecePos.current.x, animatedPiecePos.current.y);
@@ -252,12 +268,15 @@ export default function GameGrid({ piece, target, boardSize = 10, myTurn, onMove
   };
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-indigo-500/20 bg-[#0b0c10] p-4 shadow-2xl shadow-indigo-500/5">
-      {/* Visual background decorations for cyber console look */}
-      <div className="absolute top-2 left-2 h-2 w-2 rounded-full bg-indigo-500/50"></div>
-      <div className="absolute top-2 right-2 h-2 w-2 rounded-full bg-indigo-500/50"></div>
-      <div className="absolute bottom-2 left-2 h-2 w-2 rounded-full bg-indigo-500/50"></div>
-      <div className="absolute bottom-2 right-2 h-2 w-2 rounded-full bg-indigo-500/50"></div>
+    <div className="relative overflow-hidden rounded-2xl border border-[#3e2723]/60 bg-gradient-to-br from-[#2b1810] to-[#170e0a] p-5 shadow-2xl shadow-black/80">
+      {/* Wood Grain Inlays for a Physical Chessboard Frame feel */}
+      <div className="absolute top-2 left-2 right-2 bottom-2 border border-amber-500/10 pointer-events-none rounded-xl"></div>
+      
+      {/* Brass Corner screws */}
+      <div className="absolute top-3 left-3 h-2 w-2 rounded-full bg-amber-500/35 border border-amber-600/30"></div>
+      <div className="absolute top-3 right-3 h-2 w-2 rounded-full bg-amber-500/35 border border-amber-600/30"></div>
+      <div className="absolute bottom-3 left-3 h-2 w-2 rounded-full bg-amber-500/35 border border-amber-600/30"></div>
+      <div className="absolute bottom-3 right-3 h-2 w-2 rounded-full bg-amber-500/35 border border-amber-600/30"></div>
 
       <canvas
         ref={canvasRef}
@@ -266,8 +285,8 @@ export default function GameGrid({ piece, target, boardSize = 10, myTurn, onMove
         onClick={handleCanvasClick}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
-        className={`w-full max-w-[500px] aspect-square rounded-lg border border-indigo-500/10 cursor-pointer ${
-          myTurn ? 'hover:shadow-lg hover:shadow-cyan-500/5' : 'cursor-not-allowed opacity-90'
+        className={`w-full max-w-[500px] aspect-square rounded-lg border-4 border-[#120a06] cursor-pointer shadow-2xl ${
+          myTurn ? 'hover:shadow-lg hover:shadow-amber-500/10' : 'cursor-not-allowed opacity-95'
         }`}
       />
     </div>
