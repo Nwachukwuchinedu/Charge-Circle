@@ -1,10 +1,8 @@
-import { defineConfig } from '@prisma/config';
-import dotenv from 'dotenv';
-
-dotenv.config();
+import 'dotenv/config';
+import { defineConfig, env } from '@prisma/config';
 
 export default defineConfig({
-    datasource: {
-        url: process.env.DATABASE_URL
-    },
+  datasource: {
+    url: env('DIRECT_URL'),
+  },
 });
