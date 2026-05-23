@@ -32,6 +32,11 @@ function GameContent() {
       socket.emit('join_room', { roomId }, (response: any) => {
         if (!response.success) {
           setErrorText(response.error);
+        } else {
+          setRoom(response.room);
+          if (response.room.gameStates && response.room.gameStates.length > 0) {
+            setGameState(response.room.gameStates[0]);
+          }
         }
       });
 
