@@ -2,6 +2,8 @@ import { Server } from 'socket.io';
 import { AuthSocket } from './auth.socket.js';
 import { ChatService } from '../services/chat.service.js';
 import { throttleSocket } from '../utils/throttle.js';
+import { SocketResponse } from '../utils/socketResponse.js';
+import { logger } from '../utils/logger.js';
 
 export const setupChatHandlers = (io: Server, socket: AuthSocket) => {
   socket.on('send_chat', async (data: { roomId: string, message: string }) => {
@@ -19,13 +21,13 @@ export const setupChatHandlers = (io: Server, socket: AuthSocket) => {
         createdAt: new Date().toISOString(),
         user: { nickname: socket.nickname || 'Player' }
       };
-      io.to(data.roomId).emit('chat_message', optimisticMsg);
+      SocketResponse.broadcast(io.to(data.roomId), data.roomId, 'chat_message', optimisticMsg);
 
       // Persist in background (fire-and-forget)
       ChatService.saveMessage(data.roomId, socket.userId!, data.message)
-        .catch(err => console.error('[Chat] Failed to persist message:', err.message));
+        .catch(err => logger.error('[Chat] Failed to persist message:', { error: err.message, roomId: data.roomId, userId: socket.userId }));
     } catch (error: any) {
-      socket.emit('game_error', { message: error.message });
+      SocketResponse.error(socket, error.message, 'game_error', error);
     }
   });
 };

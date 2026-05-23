@@ -6,6 +6,7 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 import { setupRedis } from './utils/redis.js';
 import { BroadcastService } from './services/broadcast.service.js';
+import { logger } from './utils/logger.js';
 
 
 const app = express();
@@ -46,7 +47,7 @@ import { setupChatHandlers } from './socket/chat.handler.js';
 io.use(socketAuthMiddleware);
 
 io.on('connection', (socket) => {
-  console.log(`User connected: ${(socket as AuthSocket).userId}`);
+  logger.info(`[Socket Connected] User: ${(socket as AuthSocket).userId || 'Guest'} (socketId: ${socket.id})`);
   
   setupRoomHandlers(io, socket as AuthSocket);
   setupGameHandlers(io, socket as AuthSocket);
@@ -63,7 +64,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
-    console.log(`User disconnected: ${(socket as AuthSocket).userId}`);
+    logger.info(`[Socket Disconnected] User: ${(socket as AuthSocket).userId || 'Guest'} (socketId: ${socket.id})`);
   });
 });
 

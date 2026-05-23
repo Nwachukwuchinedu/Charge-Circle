@@ -1,4 +1,5 @@
 import { Server } from 'socket.io';
+import { SocketResponse } from '../utils/socketResponse.js';
 
 export interface GameStateDelta {
   piece?: { x: number; y: number };
@@ -29,7 +30,7 @@ export class BroadcastService {
     if (this.pendingDeltas.size === 0) return;
     
     for (const [roomId, delta] of this.pendingDeltas.entries()) {
-      this.io.to(roomId).emit('game_state_delta', delta);
+      SocketResponse.broadcast(this.io.to(roomId), roomId, 'game_state_delta', delta);
     }
     this.pendingDeltas.clear();
   }
