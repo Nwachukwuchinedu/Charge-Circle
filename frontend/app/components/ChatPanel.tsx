@@ -1,13 +1,12 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useSocket } from '../../hooks/useSocket';
+import { Socket } from 'socket.io-client';
 import { useAuth } from '../../hooks/useAuth';
 import { ChatMessage } from '../types';
 import { Send } from 'lucide-react';
 
-export default function ChatPanel({ roomId }: { roomId: string }) {
-  const { socket } = useSocket();
+export default function ChatPanel({ roomId, socket }: { roomId: string, socket: Socket | null }) {
   const { user } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');

@@ -123,7 +123,7 @@ export default function Game() {
         <div className="w-full lg:w-[350px] flex flex-col gap-6">
           <QueuePanel queue={queueForPanel} myUserId={user.id} />
           <div className="flex-1 min-h-[400px]">
-            <ChatPanel roomId={roomId} />
+            <ChatPanel roomId={roomId} socket={socket} />
           </div>
         </div>
       </main>
