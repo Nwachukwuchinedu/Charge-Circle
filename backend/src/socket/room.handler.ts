@@ -26,6 +26,7 @@ export const setupRoomHandlers = (io: Server, socket: AuthSocket) => {
   socket.on('join_room', async (data: { roomId: string }, callback) => {
     try {
       const room = await RoomService.joinRoom(data.roomId, socket.userId!);
+      if (!room) throw new Error('Failed to join room');
       socket.join(room.id);
       io.to(room.id).emit('room_state_update', room);
       io.emit('rooms_updated');
