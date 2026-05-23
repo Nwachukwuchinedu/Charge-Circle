@@ -1,0 +1,28 @@
+import { Server } from 'socket.io';
+import { AuthSocket } from './auth.socket.js';
+import { RoomService } from '../services/room.service.js';
+
+export const setupRoomHandlers = (io: Server, socket: AuthSocket) => {
+  socket.on('create_room', async (data: { name: string }, callback) => {
+    try {
+      const room = await RoomService.createRoom(socket.userId!, data.name);
+      socket.join(room.id);
+      io.emit('rooms_updated'); // Notify all clients to fetch updated room list
+      if (callback) callback({ success: true, room });
+    } catch (error: any) {
+      if (callback) callback({ success: false, error: error.message });
+    }
+  });
+
+  socket.on('join_room', async (data: { roomId: string }, callback) => {
+    try {
+      const room = await RoomService.joinRoom(data.roomId, socket.userId!);
+      socket.join(room.id);
+      io.to(room.id).emit('room_state_update', room);
+      io.emit('rooms_updated');
+      if (callback) callback({ success: true, room });
+    } catch (error: any) {
+      if (callback) callback({ success: false, error: error.message });
+    }
+  });
+};
