@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useSocket } from '../../hooks/useSocket';
 import { useAuth } from '../../hooks/useAuth';
@@ -9,7 +9,7 @@ import QueuePanel from '../components/QueuePanel';
 import ChatPanel from '../components/ChatPanel';
 import { GameState, Room, GameStateDelta } from '../types';
 
-export default function Game() {
+function GameContent() {
   const searchParams = useSearchParams();
   const roomId = searchParams.get('roomId');
   const router = useRouter();
@@ -89,12 +89,16 @@ export default function Game() {
 
   const isMyTurn = gameState.turnQueue && gameState.turnQueue[0] === user.id;
 
-  const queueForPanel = gameState.turnQueue.map((id, index) => ({
-    id,
-    counter: 0,
-    myTurn: index === 0,
-    online: true 
-  }));
+  const queueForPanel = gameState.turnQueue.map((id, index) => {
+    const player = room.players?.find(p => p.id === id);
+    return {
+      id,
+      nickname: player?.nickname || 'Player',
+      counter: 0,
+      myTurn: index === 0,
+      online: player ? player.online : true 
+    };
+  });
 
   return (
     <div className="flex flex-col min-h-screen bg-[#060709] text-zinc-100 font-sans antialiased">
@@ -138,12 +142,20 @@ export default function Game() {
         </div>
 
         <div className="w-full lg:w-[350px] flex flex-col gap-6">
-          <QueuePanel queue={queueForPanel} myUserId={user.id} />
+          <QueuePanel queue={queueForPanel} myUserId={user.id} myNickname={user.nickname} />
           <div className="flex-1 min-h-[400px]">
-            <ChatPanel roomId={roomId} socket={socket} />
+            <ChatPanel roomId={roomId} socket={socket} initialMessages={room.chatMessages} />
           </div>
         </div>
       </main>
     </div>
+  );
+}
+
+export default function Game() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#060709] flex items-center justify-center text-indigo-400 font-mono">Synchronizing Grid State...</div>}>
+      <GameContent />
+    </Suspense>
   );
 }

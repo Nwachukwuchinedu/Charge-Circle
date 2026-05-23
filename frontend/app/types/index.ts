@@ -14,6 +14,12 @@ export interface GameState {
   turnQueue: string[];
 }
 
+export interface RoomPlayer {
+  id: string;
+  nickname: string;
+  online: boolean;
+}
+
 export interface Room {
   id: string;
   name: string;
@@ -23,6 +29,8 @@ export interface Room {
   createdAt: string;
   owner: { nickname: string };
   gameStates: GameState[];
+  players?: RoomPlayer[];
+  chatMessages?: ChatMessage[];
 }
 
 export interface GameStateDelta {

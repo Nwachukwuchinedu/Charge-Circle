@@ -35,23 +35,22 @@ export default function GameGrid({ piece, target, boardSize = 10, myTurn, onMove
 
     const render = () => {
       // Clear canvas (unused here since we fill every square, but good default)
-      ctx.fillStyle = '#1a0f0a'; 
+      ctx.fillStyle = '#09090b'; 
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       const tileSize = canvas.width / boardSize;
 
-      // 1. Draw Checkerboard Squares (Chess Board Color Theme)
-      // Light squares: #eeeed2 (cream), Dark squares: #769656 (green)
+      // 1. Draw Checkerboard Squares (Futuristic Slate/Graphite Theme)
       for (let row = 0; row < boardSize; row++) {
         for (let col = 0; col < boardSize; col++) {
           const isLight = (row + col) % 2 === 0;
-          ctx.fillStyle = isLight ? '#eeeed2' : '#769656';
+          ctx.fillStyle = isLight ? '#1e293b' : '#0f172a';
           ctx.fillRect(col * tileSize, row * tileSize, tileSize, tileSize);
 
           // Draw Rank numbers (10 to 1) on the left edge of column 0
           if (col === 0) {
-            ctx.fillStyle = isLight ? '#769656' : '#eeeed2';
-            ctx.font = 'bold 11px system-ui, -apple-system, sans-serif';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.font = '500 10px system-ui, -apple-system, sans-serif';
             ctx.textBaseline = 'top';
             ctx.textAlign = 'left';
             ctx.fillText((boardSize - row).toString(), col * tileSize + 4, row * tileSize + 4);
@@ -59,8 +58,8 @@ export default function GameGrid({ piece, target, boardSize = 10, myTurn, onMove
 
           // Draw File letters (a to j) on the bottom edge of the last row
           if (row === boardSize - 1) {
-            ctx.fillStyle = isLight ? '#769656' : '#eeeed2';
-            ctx.font = 'bold 11px system-ui, -apple-system, sans-serif';
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.font = '500 10px system-ui, -apple-system, sans-serif';
             ctx.textBaseline = 'bottom';
             ctx.textAlign = 'right';
             const letter = String.fromCharCode(97 + col); // 97 is 'a'
@@ -268,15 +267,15 @@ export default function GameGrid({ piece, target, boardSize = 10, myTurn, onMove
   };
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-[#3e2723]/60 bg-gradient-to-br from-[#2b1810] to-[#170e0a] p-5 shadow-2xl shadow-black/80">
-      {/* Wood Grain Inlays for a Physical Chessboard Frame feel */}
-      <div className="absolute top-2 left-2 right-2 bottom-2 border border-amber-500/10 pointer-events-none rounded-xl"></div>
+    <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-[#0e0f13]/60 p-5 shadow-2xl shadow-black/80 backdrop-blur-md">
+      {/* Sleek cyber grid frame visual highlight */}
+      <div className="absolute top-2 left-2 right-2 bottom-2 border border-zinc-700/10 pointer-events-none rounded-xl"></div>
       
-      {/* Brass Corner screws */}
-      <div className="absolute top-3 left-3 h-2 w-2 rounded-full bg-amber-500/35 border border-amber-600/30"></div>
-      <div className="absolute top-3 right-3 h-2 w-2 rounded-full bg-amber-500/35 border border-amber-600/30"></div>
-      <div className="absolute bottom-3 left-3 h-2 w-2 rounded-full bg-amber-500/35 border border-amber-600/30"></div>
-      <div className="absolute bottom-3 right-3 h-2 w-2 rounded-full bg-amber-500/35 border border-amber-600/30"></div>
+      {/* Subtle modern glowing corner indicators */}
+      <div className="absolute top-3 left-3 h-1.5 w-1.5 rounded-full bg-indigo-500/30"></div>
+      <div className="absolute top-3 right-3 h-1.5 w-1.5 rounded-full bg-indigo-500/30"></div>
+      <div className="absolute bottom-3 left-3 h-1.5 w-1.5 rounded-full bg-indigo-500/30"></div>
+      <div className="absolute bottom-3 right-3 h-1.5 w-1.5 rounded-full bg-indigo-500/30"></div>
 
       <canvas
         ref={canvasRef}
@@ -285,8 +284,8 @@ export default function GameGrid({ piece, target, boardSize = 10, myTurn, onMove
         onClick={handleCanvasClick}
         onMouseMove={handleMouseMove}
         onMouseLeave={handleMouseLeave}
-        className={`w-full max-w-[500px] aspect-square rounded-lg border-4 border-[#120a06] cursor-pointer shadow-2xl ${
-          myTurn ? 'hover:shadow-lg hover:shadow-amber-500/10' : 'cursor-not-allowed opacity-95'
+        className={`w-full max-w-[500px] aspect-square rounded-lg border border-zinc-800/80 cursor-pointer shadow-2xl ${
+          myTurn ? 'hover:shadow-lg hover:shadow-indigo-500/10 transition-shadow duration-300' : 'cursor-not-allowed opacity-95'
         }`}
       />
     </div>

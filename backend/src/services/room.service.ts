@@ -3,6 +3,7 @@ import { AppError } from '../utils/errors.js';
 
 interface ActiveUser {
   id: string;
+  nickname: string;
   online: boolean;
   disconnectedAt?: number;
 }
@@ -11,6 +12,12 @@ export class RoomService {
   static activeUsersMap = new Map<string, ActiveUser[]>();
 
   static async createRoom(ownerId: string, name: string) {
+    const dbUser = await prisma.user.findUnique({
+      where: { id: ownerId },
+      select: { nickname: true }
+    });
+    const nickname = dbUser?.nickname || 'Player';
+
     const room = await prisma.room.create({
       data: {
         name,
@@ -30,7 +37,14 @@ export class RoomService {
       },
       include: { gameStates: true }
     });
-    return room;
+
+    // Add owner to active users map
+    this.activeUsersMap.set(room.id, [{ id: ownerId, nickname, online: true }]);
+
+    return {
+      ...room,
+      players: [{ id: ownerId, nickname, online: true }]
+    };
   }
 
   static async getRooms() {
@@ -50,6 +64,13 @@ export class RoomService {
     if (!room) throw new AppError('Room not found');
     if (room.status === 'finished') throw new AppError('Game already finished');
 
+    // Fetch user nickname from DB
+    const dbUser = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { nickname: true }
+    });
+    const nickname = dbUser?.nickname || 'Player';
+
     if (!this.activeUsersMap.has(roomId)) {
       this.activeUsersMap.set(roomId, []);
     }
@@ -57,9 +78,10 @@ export class RoomService {
     const existing = users.find(u => u.id === userId);
     if (existing) {
       existing.online = true;
+      existing.nickname = nickname; // update nickname
       existing.disconnectedAt = undefined;
     } else {
-      users.push({ id: userId, online: true });
+      users.push({ id: userId, nickname, online: true });
     }
 
     const gameState = room.gameStates[0];
@@ -83,10 +105,25 @@ export class RoomService {
       });
     }
 
-    return await prisma.room.findUnique({
+    const updatedRoom = await prisma.room.findUnique({
       where: { id: roomId },
-      include: { gameStates: true, owner: { select: { nickname: true } } }
+      include: { 
+        gameStates: true, 
+        owner: { select: { nickname: true } },
+        chatMessages: {
+          include: { user: { select: { nickname: true } } },
+          take: 50,
+          orderBy: { createdAt: 'asc' }
+        }
+      }
     });
+
+    if (!updatedRoom) return null;
+
+    return {
+      ...updatedRoom,
+      players: users.map(u => ({ id: u.id, nickname: u.nickname, online: u.online }))
+    };
   }
 
   static markUserDisconnected(roomId: string, userId: string) {

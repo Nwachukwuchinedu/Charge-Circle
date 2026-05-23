@@ -6,11 +6,17 @@ import { useAuth } from '../../hooks/useAuth';
 import { ChatMessage } from '../types';
 import { Send } from 'lucide-react';
 
-export default function ChatPanel({ roomId, socket }: { roomId: string, socket: Socket | null }) {
+export default function ChatPanel({ roomId, socket, initialMessages = [] }: { roomId: string, socket: Socket | null, initialMessages?: ChatMessage[] }) {
   const { user } = useAuth();
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (initialMessages.length > 0) {
+      setMessages(initialMessages);
+    }
+  }, [initialMessages]);
 
   useEffect(() => {
     if (!socket) return;

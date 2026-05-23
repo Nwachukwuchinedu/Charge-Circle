@@ -4,6 +4,7 @@ import React from 'react';
 
 interface User {
   id: string;
+  nickname: string;
   counter: number;
   myTurn: boolean;
   online: boolean;
@@ -12,34 +13,32 @@ interface User {
 interface QueuePanelProps {
   queue: User[];
   myUserId: string | null;
+  myNickname?: string;
 }
 
-export default function QueuePanel({ queue, myUserId }: QueuePanelProps) {
+export default function QueuePanel({ queue, myUserId, myNickname }: QueuePanelProps) {
   // Find current user's position in the queue
   const myIndex = queue.findIndex(u => u.id === myUserId);
   const myPosition = myIndex !== -1 ? myIndex + 1 : null;
   const myData = myIndex !== -1 ? queue[myIndex] : null;
 
-  // Active player is the one whose turn it is
-  const activePlayer = queue.find(u => u.myTurn);
-
   return (
     <div className="flex flex-col gap-6 w-full lg:w-96">
-      {/* 1. Personal Grid Connection Status (Glassmorphism Panel) */}
-      <div className="relative overflow-hidden rounded-2xl border border-indigo-500/20 bg-indigo-950/10 p-5 backdrop-blur-md">
-        <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-indigo-500/10 blur-xl"></div>
-        <div className="absolute -left-8 -bottom-8 h-24 w-24 rounded-full bg-cyan-500/10 blur-xl"></div>
+      {/* 1. Personal Console (Glassmorphism Panel) */}
+      <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-[#0e0f13]/60 p-5 shadow-xl backdrop-blur-md">
+        <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-indigo-500/5 blur-xl"></div>
+        <div className="absolute -left-8 -bottom-8 h-24 w-24 rounded-full bg-cyan-500/5 blur-xl"></div>
 
-        <h3 className="text-sm font-semibold tracking-wider text-indigo-400 uppercase mb-4">
-          Personal Console
+        <h3 className="text-sm font-semibold text-indigo-400 mb-4">
+          Your Status
         </h3>
 
         {myUserId ? (
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
-              <span className="text-zinc-400 text-sm">Node ID</span>
-              <span className="font-mono text-zinc-100 font-medium bg-zinc-800/40 px-2 py-0.5 rounded text-xs border border-zinc-700/30">
-                {myUserId}
+              <span className="text-zinc-400 text-sm">Player</span>
+              <span className="text-zinc-100 font-medium bg-zinc-800/40 px-2.5 py-0.5 rounded text-xs border border-zinc-700/30">
+                {myNickname || 'You'}
               </span>
             </div>
 
@@ -61,14 +60,14 @@ export default function QueuePanel({ queue, myUserId }: QueuePanelProps) {
             <div className="flex items-center justify-between">
               <span className="text-zinc-400 text-sm">Queue Position</span>
               <span className="font-bold text-zinc-100">
-                {myPosition ? `#${myPosition} / ${queue.length}` : 'Not in Queue'}
+                {myPosition ? `#${myPosition} / ${queue.length}` : 'Not in queue'}
               </span>
             </div>
 
             <div className="flex items-center justify-between">
-              <span className="text-zinc-400 text-sm">Cycles Since Move</span>
-              <span className="font-mono text-zinc-100">
-                {myData ? myData.counter : 'N/A'}
+              <span className="text-zinc-400 text-sm">Move Cycles</span>
+              <span className="font-mono text-zinc-100 text-sm bg-zinc-800/20 px-2 py-0.5 rounded border border-zinc-700/30">
+                {myData ? myData.counter : '0'}
               </span>
             </div>
 
@@ -76,7 +75,7 @@ export default function QueuePanel({ queue, myUserId }: QueuePanelProps) {
             <div className="mt-4 pt-3 border-t border-zinc-800/40 text-xs">
               {myData?.myTurn ? (
                 <div className="text-emerald-400 font-medium bg-emerald-500/10 p-2.5 rounded-lg border border-emerald-500/25">
-                  ✦ You are the active operator. Click any adjacent tile to move the Energy Orb!
+                  ✦ You are active. Click an adjacent tile to move the Energy Orb!
                 </div>
               ) : (
                 <div className="text-zinc-500">
@@ -91,19 +90,19 @@ export default function QueuePanel({ queue, myUserId }: QueuePanelProps) {
           </div>
         ) : (
           <div className="text-sm text-zinc-500 animate-pulse py-4 text-center">
-            Initializing node connection...
+            Initializing connection...
           </div>
         )}
       </div>
 
-      {/* 2. Grid Queue Registry List */}
-      <div className="flex flex-col flex-1 rounded-2xl border border-indigo-500/10 bg-[#0e0f13] p-5 shadow-xl">
+      {/* 2. Player Queue List */}
+      <div className="flex flex-col flex-1 rounded-2xl border border-zinc-800 bg-[#0e0f13]/60 p-5 shadow-xl">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold tracking-wider text-indigo-400 uppercase">
-            Grid Queue Registry
+          <h3 className="text-sm font-semibold text-indigo-400">
+            Player Queue
           </h3>
-          <span className="text-xs bg-indigo-500/10 text-indigo-300 font-mono px-2 py-0.5 rounded-full border border-indigo-500/20">
-            {queue.length} Active
+          <span className="text-xs bg-indigo-500/10 text-indigo-300 font-mono px-2.5 py-0.5 rounded-full border border-indigo-500/20">
+            {queue.length} Online
           </span>
         </div>
 
@@ -111,7 +110,7 @@ export default function QueuePanel({ queue, myUserId }: QueuePanelProps) {
         <div className="flex flex-col gap-2 overflow-y-auto max-h-[300px] pr-1 custom-scrollbar">
           {queue.length === 0 ? (
             <div className="text-zinc-600 text-sm text-center py-8">
-              No nodes registered on the grid.
+              No players connected.
             </div>
           ) : (
             queue.map((user, idx) => {
@@ -152,11 +151,11 @@ export default function QueuePanel({ queue, myUserId }: QueuePanelProps) {
                       )}
                     </span>
 
-                    {/* ID */}
-                    <span className={`font-mono text-sm truncate ${
-                      isSelf ? 'text-indigo-300 font-bold' : 'text-zinc-300'
+                    {/* Nickname */}
+                    <span className={`text-sm truncate ${
+                      isSelf ? 'text-indigo-300 font-semibold' : 'text-zinc-300'
                     }`}>
-                      {user.id} {isSelf && <span className="text-[10px] text-indigo-400 bg-indigo-500/10 px-1 py-0.2 rounded ml-1">YOU</span>}
+                      {user.nickname} {isSelf && <span className="text-[9px] font-semibold text-indigo-400 bg-indigo-500/10 px-1.5 py-0.2 rounded ml-1.5">YOU</span>}
                     </span>
                   </div>
 
@@ -168,15 +167,15 @@ export default function QueuePanel({ queue, myUserId }: QueuePanelProps) {
 
                     {/* Status Badge */}
                     {user.myTurn ? (
-                      <span className="text-[10px] uppercase tracking-wider font-extrabold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+                      <span className="text-[10px] tracking-wider font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
                         Active
                       </span>
                     ) : !user.online ? (
-                      <span className="text-[10px] uppercase tracking-wider font-medium text-zinc-600 bg-zinc-800/40 px-2 py-0.5 rounded">
+                      <span className="text-[10px] tracking-wider font-medium text-zinc-600 bg-zinc-800/40 px-2 py-0.5 rounded">
                         Offline
                       </span>
                     ) : (
-                      <span className="text-[10px] uppercase tracking-wider font-medium text-zinc-500">
+                      <span className="text-[10px] tracking-wider font-medium text-zinc-500">
                         Wait
                       </span>
                     )}
