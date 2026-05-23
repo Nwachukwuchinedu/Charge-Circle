@@ -3,6 +3,15 @@ import { AuthSocket } from './auth.socket.js';
 import { RoomService } from '../services/room.service.js';
 
 export const setupRoomHandlers = (io: Server, socket: AuthSocket) => {
+  socket.on('get_rooms', async (data: any, callback) => {
+    try {
+      const rooms = await RoomService.getRooms();
+      if (callback) callback({ success: true, rooms });
+    } catch (error: any) {
+      if (callback) callback({ success: false, error: error.message });
+    }
+  });
+
   socket.on('create_room', async (data: { name: string }, callback) => {
     try {
       const room = await RoomService.createRoom(socket.userId!, data.name);

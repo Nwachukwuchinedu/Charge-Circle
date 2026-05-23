@@ -1,240 +1,154 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
-import { io, Socket } from 'socket.io-client';
-import GameGrid from './components/GameGrid';
-import QueuePanel from './components/QueuePanel';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '../hooks/useAuth';
+import { useSocket } from '../hooks/useSocket';
+import { Room } from './types';
+import { LogOut, Plus, Users, Play } from 'lucide-react';
 
-interface User {
-  id: string;
-  counter: number;
-  myTurn: boolean;
-  online: boolean;
-}
+export default function Lobby() {
+  const { user, loading, logout } = useAuth();
+  const { socket, connected } = useSocket();
+  const router = useRouter();
+  const [rooms, setRooms] = useState<Room[]>([]);
+  const [newRoomName, setNewRoomName] = useState('');
+  const [creating, setCreating] = useState(false);
 
-interface GameState {
-  piece: { x: number; y: number };
-  target: { x: number; y: number };
-  boardSize: number;
-  score: number;
-  queue: User[];
-}
-
-export default function Home() {
-  const [socket, setSocket] = useState<Socket | null>(null);
-  const [connected, setConnected] = useState<boolean>(false);
-  const [myUserId, setMyUserId] = useState<string | null>(null);
-  
-  // Game State
-  const [gameState, setGameState] = useState<GameState>({
-    piece: { x: 4, y: 4 },
-    target: { x: 2, y: 7 },
-    boardSize: 10,
-    score: 0,
-    queue: []
-  });
-
-  // UI Effects
-  const [isCharged, setIsCharged] = useState<boolean>(false);
-  const [errorText, setErrorText] = useState<string | null>(null);
-  const errorTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Initialize socket client
   useEffect(() => {
-    // Check local storage for existing User ID, or generate a new one
-    let userId = localStorage.getItem('charge_circle_user_id');
-    if (!userId) {
-      // Generate a user ID (e.g. Node-123)
-      userId = `Node-${Math.floor(100 + Math.random() * 900)}`;
-      localStorage.setItem('charge_circle_user_id', userId);
+    if (!loading && !user) {
+      router.push('/login');
     }
-    setMyUserId(userId);
+  }, [user, loading, router]);
 
-    // Connect to backend WebSocket server
-    const socketUrl = process.env.NEXT_PUBLIC_SOCKET_URL || 'http://localhost:4000';
-    console.log(`Connecting to WebSocket server at ${socketUrl}`);
-    const socketClient = io(socketUrl);
-
-    socketClient.on('connect', () => {
-      console.log('Connected to socket server');
-      setConnected(true);
-      
-      // Immediately join game queue with our userId
-      socketClient.emit('join_game', { userId });
-    });
-
-    socketClient.on('disconnect', () => {
-      console.log('Disconnected from socket server');
-      setConnected(false);
-    });
-
-    // Listen for state broadcasts
-    socketClient.on('game_state', (state: GameState) => {
-      setGameState(state);
-    });
-
-    // Listen for grid charged successes
-    socketClient.on('grid_charged', () => {
-      setIsCharged(true);
-      setTimeout(() => {
-        setIsCharged(false);
-      }, 8000); // 800ms flash effect
-    });
-
-    // Listen for error messages (e.g., trying to move when it is not your turn)
-    socketClient.on('error_message', (message: string) => {
-      setErrorText(message);
-      
-      // Clear existing timeout
-      if (errorTimeoutRef.current) {
-        clearTimeout(errorTimeoutRef.current);
-      }
-      
-      // Auto-clear error after 4 seconds
-      errorTimeoutRef.current = setTimeout(() => {
-        setErrorText(null);
-      }, 4000);
-    });
-
-    setSocket(socketClient);
-
-    return () => {
-      socketClient.disconnect();
-      if (errorTimeoutRef.current) {
-        clearTimeout(errorTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  // Emits move event to backend
-  const handleMovePiece = (newX: number, newY: number) => {
-    if (socket && connected) {
-      socket.emit('move_piece', { x: newX, y: newY });
+  const fetchRooms = () => {
+    if (socket) {
+      socket.emit('get_rooms', {}, (data: any) => {
+         if (data && data.rooms) setRooms(data.rooms);
+      });
     }
   };
 
-  // Find out who is currently playing
-  const activeUser = gameState.queue.find(u => u.myTurn);
-  const isMyTurn = activeUser?.id === myUserId;
+  useEffect(() => {
+    if (socket && connected) {
+      fetchRooms();
+      socket.on('rooms_updated', fetchRooms);
+    }
+    return () => {
+      if (socket) socket.off('rooms_updated', fetchRooms);
+    };
+  }, [socket, connected]);
+
+  const handleCreateRoom = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRoomName.trim() || !socket) return;
+    
+    setCreating(true);
+    socket.emit('create_room', { name: newRoomName }, (response: any) => {
+      setCreating(false);
+      if (response.success) {
+        setNewRoomName('');
+        router.push(`/game?roomId=${response.room.id}`);
+      } else {
+        alert(response.error || 'Failed to create room');
+      }
+    });
+  };
+
+  const handleJoinRoom = (roomId: string) => {
+    if (!socket) return;
+    socket.emit('join_room', { roomId }, (response: any) => {
+      if (response.success) {
+        router.push(`/game?roomId=${roomId}`);
+      } else {
+        alert(response.error || 'Failed to join room');
+      }
+    });
+  };
+
+  if (loading || !user) return <div className="min-h-screen bg-[#060709] flex items-center justify-center text-indigo-400 font-mono">Initializing Node Authentication...</div>;
 
   return (
-    <div className="flex flex-col min-h-screen bg-[#060709] text-zinc-100 font-sans antialiased selection:bg-indigo-500/30">
-      {/* Visual background ambient glows */}
-      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] rounded-full bg-indigo-900/10 blur-[120px] pointer-events-none"></div>
-      <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] rounded-full bg-cyan-900/10 blur-[120px] pointer-events-none"></div>
-
-      {/* Grid charged flashing background layer */}
-      <div className={`fixed inset-0 bg-emerald-500/5 transition-opacity duration-300 pointer-events-none z-40 ${
-        isCharged ? 'opacity-100 animate-pulse' : 'opacity-0'
-      }`}></div>
-
-      {/* Header Bar */}
-      <header className="sticky top-0 z-30 border-b border-zinc-900/60 bg-[#060709]/80 backdrop-blur-md px-6 py-4">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-indigo-500 to-cyan-400 font-black text-white shadow-lg shadow-indigo-500/20">
-              C
-            </div>
-            <div>
-              <h1 className="text-lg font-bold tracking-tight text-white">
-                Charge Circle
-              </h1>
-              <p className="text-[10px] text-zinc-500 uppercase tracking-widest">
-                Cooperative Power Grid
-              </p>
-            </div>
+    <div className="min-h-screen bg-[#060709] text-zinc-100 p-8">
+      <header className="max-w-5xl mx-auto flex items-center justify-between border-b border-zinc-800/60 pb-6 mb-8">
+        <div className="flex items-center gap-4">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-500 to-cyan-400 font-black text-white shadow-lg shadow-indigo-500/20">
+            C
           </div>
-
-          {/* Connection Status Badge */}
-          <div className="flex items-center gap-2">
-            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${
-              connected 
-                ? 'bg-emerald-500/5 text-emerald-400 border-emerald-500/20' 
-                : 'bg-rose-500/5 text-rose-400 border-rose-500/20 animate-pulse'
-            }`}>
-              <span className={`h-1.5 w-1.5 rounded-full ${connected ? 'bg-emerald-400' : 'bg-rose-400'}`}></span>
-              {connected ? 'Grid Connected' : 'Connecting...'}
-            </span>
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-white">Charge Circle Lobby</h1>
+            <p className="text-xs text-zinc-500 uppercase tracking-widest flex items-center gap-2">
+              Operator: <span className="text-emerald-400 font-bold">{user.nickname}</span>
+              <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] border ${connected ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${connected ? 'bg-emerald-400' : 'bg-rose-400'}`}></span>
+                {connected ? 'Socket Live' : 'Disconnected'}
+              </span>
+            </p>
           </div>
         </div>
+        <button 
+          onClick={() => { logout(); router.push('/login'); }}
+          className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white bg-zinc-900/50 hover:bg-rose-500/20 hover:border-rose-500/50 border border-zinc-800 px-4 py-2 rounded-lg transition-all"
+        >
+          <LogOut size={16} /> Disconnect
+        </button>
       </header>
 
-      {/* Main content grid */}
-      <main className="flex-1 max-w-6xl w-full mx-auto p-6 md:p-8 flex flex-col gap-8 z-10">
-        
-        {/* Error Alert Display */}
-        {errorText && (
-          <div className="flex items-center justify-between p-4 rounded-xl border border-rose-500/30 bg-rose-500/5 text-rose-400 text-sm shadow-lg shadow-rose-950/20 animate-in fade-in slide-in-from-top duration-300">
-            <div className="flex items-center gap-2">
-              <span className="font-bold text-xs uppercase bg-rose-500/25 px-1.5 py-0.5 rounded">Access Denied</span>
-              <span>{errorText}</span>
-            </div>
-            <button onClick={() => setErrorText(null)} className="hover:text-rose-200 ml-2 font-bold font-mono">×</button>
-          </div>
-        )}
-
-        {/* Level Accomplished Flash alert */}
-        {isCharged && (
-          <div className="flex items-center justify-center p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/5 text-emerald-400 text-sm font-semibold text-center shadow-lg shadow-emerald-950/20 animate-bounce">
-            ⚡ GRID NODE CHARGED! SYSTEM VOLTAGE STABILIZED (+1 SCORE) ⚡
-          </div>
-        )}
-
-        {/* Global Game Status Banner */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 bg-[#0d0e12] border border-zinc-800/40 p-5 rounded-2xl">
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] text-zinc-500 uppercase tracking-widest">Total Energy Charged</span>
-            <span className="text-2xl font-black text-cyan-400 font-mono">
-              {gameState.score} GW
-            </span>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] text-zinc-500 uppercase tracking-widest">Online Grid Nodes</span>
-            <span className="text-2xl font-bold text-zinc-100 font-mono">
-              {gameState.queue.filter(u => u.online).length}
-            </span>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] text-zinc-500 uppercase tracking-widest">Grid Queue Length</span>
-            <span className="text-2xl font-bold text-zinc-100 font-mono">
-              {gameState.queue.length}
-            </span>
-          </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] text-zinc-500 uppercase tracking-widest">Active Operator</span>
-            <span className="text-2xl font-bold text-indigo-400 truncate font-mono" title={activeUser?.id || 'None'}>
-              {activeUser ? activeUser.id : 'Offgrid'}
-            </span>
+      <main className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="md:col-span-1">
+          <div className="bg-[#0d0e12] border border-zinc-800/40 rounded-2xl p-6 shadow-xl sticky top-8">
+            <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-indigo-400">
+              <Plus size={18} /> Initialize Room
+            </h2>
+            <form onSubmit={handleCreateRoom} className="flex flex-col gap-4">
+              <input 
+                type="text" 
+                value={newRoomName}
+                onChange={(e) => setNewRoomName(e.target.value)}
+                placeholder="Room Designation..."
+                className="w-full bg-[#181920] border border-zinc-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+                required
+              />
+              <button 
+                type="submit" 
+                disabled={creating || !connected}
+                className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-cyan-500 hover:from-indigo-500 hover:to-cyan-400 text-white font-bold rounded-lg disabled:opacity-50 transition-all shadow-lg shadow-indigo-500/20"
+              >
+                {creating ? 'Creating...' : 'Create Room'}
+              </button>
+            </form>
           </div>
         </div>
 
-        {/* Game Area split */}
-        <div className="flex flex-col lg:flex-row gap-8 items-start justify-center">
-          {/* Game Board */}
-          <div className="flex flex-col items-center gap-4 w-full max-w-[500px]">
-            <GameGrid
-              piece={gameState.piece}
-              target={gameState.target}
-              boardSize={gameState.boardSize}
-              myTurn={isMyTurn}
-              onMove={handleMovePiece}
-            />
-
-            {/* Instruction Footer */}
-            <div className="text-center text-xs text-zinc-500 max-w-[400px]">
-              Cooperate with other players to guide the glowing <span className="text-orange-400 font-medium">Energy Orb</span> to the pulsing green <span className="text-emerald-400 font-medium">Charging Circle</span>. Take turns one step at a time!
+        <div className="md:col-span-2 flex flex-col gap-4">
+          <h2 className="text-xl font-bold flex items-center gap-2 text-zinc-300">
+            <Users size={20} /> Active Grid Nodes
+          </h2>
+          
+          {rooms.length === 0 ? (
+            <div className="bg-[#0d0e12]/50 border border-zinc-800/30 border-dashed rounded-2xl p-12 text-center text-zinc-500">
+              No active rooms available. Initialize a new room to start.
             </div>
-          </div>
-
-          {/* Right hand Queue and Stats Dashboard */}
-          <QueuePanel queue={gameState.queue} myUserId={myUserId} />
+          ) : (
+            <div className="grid gap-4">
+              {rooms.map(room => (
+                <div key={room.id} className="bg-[#0d0e12] border border-zinc-800/40 rounded-xl p-5 flex items-center justify-between hover:border-indigo-500/50 transition-all group shadow-md">
+                  <div>
+                    <h3 className="font-bold text-lg text-white group-hover:text-indigo-300 transition-colors">{room.name}</h3>
+                    <p className="text-xs text-zinc-500 mt-1">Owner: <span className="text-zinc-300">{room.owner?.nickname || 'Unknown'}</span> • Status: <span className="text-emerald-400">{room.status}</span></p>
+                  </div>
+                  <button 
+                    onClick={() => handleJoinRoom(room.id)}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-zinc-800 hover:bg-emerald-600 text-white font-medium rounded-lg transition-colors shadow"
+                  >
+                    <Play size={16} /> Join Node
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </main>
-
-      {/* Footer copyright */}
-      <footer className="mt-auto border-t border-zinc-950 py-6 px-8 text-center text-xs text-zinc-600 bg-[#060709]">
-        Charge Circle Grid Game &copy; 2026. Powered by Socket.io, Next.js, and HTML Canvas.
-      </footer>
     </div>
   );
 }
