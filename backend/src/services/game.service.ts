@@ -36,6 +36,9 @@ export class GameService {
       });
 
       return { state: updatedState, from: { x: gameState.pieceX, y: gameState.pieceY } };
+    }, {
+      maxWait: 15000, // 15 seconds to wait for a connection (handles Neon cold starts)
+      timeout: 30000  // 30 seconds execution timeout limit
     });
 
     // Fire-and-forget: log move history without blocking the response
