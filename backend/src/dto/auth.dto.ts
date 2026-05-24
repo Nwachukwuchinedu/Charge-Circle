@@ -5,7 +5,7 @@ const stripHtml = (v: string) => v.replace(/<[^>]*>/g, '').trim();
 export const SignupDto = z.object({
   nickname: z.string().min(1).max(30).transform(stripHtml),
   email: z.string().email().transform((v) => v.toLowerCase().trim()),
-  password: z.string().min(8),
+  password: z.string().min(6, { message: 'Password must be at least 6 characters long' }),
 });
 export type SignupDto = z.infer<typeof SignupDto>;
 

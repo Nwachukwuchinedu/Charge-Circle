@@ -20,7 +20,8 @@ export const validate = (schema: ZodSchema) => {
       next();
     } catch (error) {
       if (error instanceof ZodError) {
-        ApiResponse.error(res, 'Validation failed', error.issues, 400);
+        const errorMessages = error.issues.map((issue) => issue.message).join('. ');
+        ApiResponse.error(res, errorMessages, error.issues, 400);
       } else {
         ApiResponse.error(res, 'Validation error', error, 400);
       }
