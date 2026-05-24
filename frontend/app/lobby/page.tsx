@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../hooks/useAuth';
 import { useSocket } from '../../hooks/useSocket';
@@ -20,6 +20,7 @@ export default function Lobby() {
   const router = useRouter();
 
   const { data: rooms = [], isLoading: isLoadingRooms } = useRoomList(socket, connected);
+  const [joiningRoomId, setJoiningRoomId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -38,11 +39,13 @@ export default function Lobby() {
 
   const handleJoinRoom = (roomId: string) => {
     if (!socket) return;
+    setJoiningRoomId(roomId);
     socket.emit('join_room', { roomId }, (response: any) => {
       if (response.success) {
         router.push(`/game?roomId=${roomId}`);
       } else {
         alert(response.error || 'Failed to join room');
+        setJoiningRoomId(null);
       }
     });
   };
@@ -80,7 +83,7 @@ export default function Lobby() {
             <ConnectionBadge connected={connected} />
             <button
               onClick={() => { logout(); router.push('/'); }}
-              className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-rose-400 bg-zinc-900/60 hover:bg-rose-500/10 border border-zinc-800 hover:border-rose-500/30 px-3 py-1.5 rounded-lg transition-all"
+              className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-rose-400 bg-zinc-900/60 hover:bg-rose-500/10 border border-zinc-800 hover:border-rose-500/30 px-3 py-1.5 rounded-lg cursor-pointer transition-all"
             >
               <LogOut size={12} /> <span className="hidden sm:inline">Disconnect</span>
             </button>
@@ -110,7 +113,13 @@ export default function Lobby() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {rooms.map((room, i) => (
-              <RoomCard key={room.id} room={room} onJoin={handleJoinRoom} index={i} />
+              <RoomCard
+                key={room.id}
+                room={room}
+                onJoin={handleJoinRoom}
+                index={i}
+                isJoining={joiningRoomId === room.id}
+              />
             ))}
           </div>
         )}

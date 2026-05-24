@@ -13,7 +13,7 @@ import ConnectionBadge from '../components/ui/ConnectionBadge';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { GameState, Room, GameStateDelta, ChatMessage } from '../types';
 import { useUIStore } from '../stores/ui.store';
-import { Users, MessageSquare, ArrowLeft, Zap } from 'lucide-react';
+import { Users, MessageSquare, ArrowLeft, LogOut, Zap } from 'lucide-react';
 
 function GameContent() {
   const searchParams = useSearchParams();
@@ -101,6 +101,16 @@ function GameContent() {
     if (socket && connected) socket.emit('move_piece', { roomId, toX: newX, toY: newY });
   };
 
+  const handleLeaveRoom = () => {
+    if (socket && connected && roomId) {
+      socket.emit('leave_room', { roomId }, (response: any) => {
+        router.push('/lobby');
+      });
+    } else {
+      router.push('/lobby');
+    }
+  };
+
   const isMyTurn = gameState.turnQueue?.[0] === user.id;
   const activePlayerId = gameState.turnQueue?.[0];
 
@@ -127,10 +137,10 @@ function GameContent() {
       <header className="relative z-30 flex items-center justify-between px-4 py-2.5 border-b border-zinc-900/60 bg-[#060709]/80 backdrop-blur-md shrink-0">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => router.push('/lobby')}
-            className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-white bg-zinc-900/60 hover:bg-zinc-800 border border-zinc-800 px-3 py-1.5 rounded-lg transition-all"
+            onClick={handleLeaveRoom}
+            className="flex items-center gap-1.5 text-xs text-rose-400 hover:text-rose-300 bg-rose-950/20 hover:bg-rose-900/20 border border-rose-900/30 px-3 py-1.5 rounded-lg cursor-pointer transition-all"
           >
-            <ArrowLeft size={14} /> Lobby
+            <LogOut size={14} className="rotate-180" /> Leave Room
           </button>
           <div className="hidden sm:block text-xs text-zinc-500">
             Room <span className="text-indigo-300 font-medium">{room.name}</span>

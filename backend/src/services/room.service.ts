@@ -248,6 +248,59 @@ export class RoomService {
   }
 
   /**
+   * Removes a user from the room's active users list and turn queue.
+   */
+  static async leaveRoom(roomId: string, userId: string): Promise<void> {
+    const users = this.activeUsersMap.get(roomId);
+    if (users) {
+      const idx = users.findIndex((u) => u.id === userId);
+      if (idx !== -1) {
+        users.splice(idx, 1);
+      }
+    }
+
+    try {
+      const gs = await prisma.gameState.findUnique({ where: { roomId } });
+      if (gs) {
+        const queue = (gs.turnQueue as string[]) ?? [];
+        const filtered = queue.filter((u) => u !== userId);
+        if (filtered.length !== queue.length) {
+          const updated = await prisma.gameState.update({
+            where: { roomId },
+            data: { turnQueue: filtered },
+          });
+
+          // Sync cache
+          const cached = this.roomCache.get(roomId);
+          this.roomCache.set(roomId, {
+            boardSize: cached?.boardSize ?? 10,
+            gameState: {
+              pieceX: updated.pieceX,
+              pieceY: updated.pieceY,
+              targetX: updated.targetX,
+              targetY: updated.targetY,
+              score: updated.score,
+              turnQueue: filtered,
+            },
+          });
+
+          // Broadcast delta because turnQueue changed!
+          BroadcastService.queueDelta(roomId, {
+            turnQueue: filtered,
+            activePlayer: filtered[0] || '',
+          });
+        }
+      }
+    } catch (e: any) {
+      logger.error('[LeaveRoom] Error removing user from turnQueue:', {
+        userId,
+        roomId,
+        error: e.message,
+      });
+    }
+  }
+
+  /**
    * Marks a user as disconnected in the active-users map.
    * The user will be removed from the room after the 30-second grace period
    * by the periodic cleanup sweep.

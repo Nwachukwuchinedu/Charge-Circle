@@ -18,7 +18,7 @@ export function HUDToggle({ side, label, icon, count }: { side: 'queue' | 'chat'
   return (
     <button
       onClick={toggle}
-      className={`relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border transition-all shadow-lg ${
+      className={`relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border cursor-pointer transition-all shadow-lg ${
         isOpen
           ? 'bg-indigo-600 text-white border-indigo-500 shadow-indigo-500/20'
           : 'bg-zinc-900/80 text-zinc-300 border-zinc-700/60 backdrop-blur-sm hover:bg-zinc-800 hover:border-zinc-600'
@@ -66,7 +66,7 @@ export function HUDDrawer({ side, title, icon, children }: HUDOverlayProps) {
                 {icon}
                 {title}
               </div>
-              <button onClick={close} className="p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors">
+              <button onClick={close} className="p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-white cursor-pointer transition-colors">
                 <X size={16} />
               </button>
             </div>

@@ -10,10 +10,12 @@ export default function RoomCard({
   room,
   onJoin,
   index,
+  isJoining = false,
 }: {
   room: Room;
   onJoin: (id: string) => void;
   index: number;
+  isJoining?: boolean;
 }) {
   const playerCount = room.players?.length || 0;
   const maxPlayers = (room as any).maxPlayers;
@@ -56,9 +58,10 @@ export default function RoomCard({
 
       <Button
         onClick={() => onJoin(room.id)}
-        disabled={isFull}
+        disabled={isFull || isJoining}
+        isLoading={isJoining}
         variant="secondary"
-        leftIcon={!isFull ? <Play size={14} /> : undefined}
+        leftIcon={!isFull && !isJoining ? <Play size={14} /> : undefined}
         className="w-full py-2.5 text-sm font-medium rounded-lg"
       >
         {isFull ? 'Room Full' : 'Join Node'}

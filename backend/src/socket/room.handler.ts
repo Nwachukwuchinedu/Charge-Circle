@@ -61,4 +61,32 @@ export const setupRoomHandlers = (io: Server, socket: AuthSocket): void => {
       SocketResponse.acknowledge(socket, callback, { success: false, error: error.message, errorObj: error });
     }
   });
+
+  /**
+   * Leaves an existing room by ID.
+   */
+  socket.on('leave_room', async (data: { roomId: string }, callback) => {
+    try {
+      const { roomId } = data;
+      await RoomService.leaveRoom(roomId, socket.userId!);
+      socket.leave(roomId);
+
+      // Broadcast room update to remaining players
+      const roomDetails = await RoomService.getRoomDetails(roomId);
+      if (roomDetails) {
+        SocketResponse.broadcast(io.to(roomId), roomId, 'room_state_update', roomDetails);
+      }
+      
+      // Broadcast global rooms list update
+      SocketResponse.broadcast(io, null, 'rooms_updated', null);
+
+      if (callback) {
+        callback({ success: true });
+      }
+    } catch (error: any) {
+      if (callback) {
+        callback({ success: false, error: error.message });
+      }
+    }
+  });
 };
