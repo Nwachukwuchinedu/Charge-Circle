@@ -40,13 +40,14 @@ export class BroadcastService {
   }
 
   /**
-   * Immediately broadcasts an event to all sockets in a room.
+   * Immediately broadcasts an event to all sockets in a room, or globally if roomId is null/empty.
    */
-  static broadcast(roomId: string, event: string, payload: any): void {
+  static broadcast(roomId: string | null, event: string, payload: any): void {
     if (this.io) {
-      SocketResponse.broadcast(this.io.to(roomId), roomId, event, payload);
+      const target = roomId ? this.io.to(roomId) : this.io;
+      SocketResponse.broadcast(target, roomId, event, payload);
     } else {
-      logger.warn(`[BroadcastService] Attempted to broadcast to room ${roomId} before initialisation`);
+      logger.warn(`[BroadcastService] Attempted to broadcast to room ${roomId || 'Global'} before initialisation`);
     }
   }
 

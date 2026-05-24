@@ -349,10 +349,74 @@ export class RoomService {
   }
 
   /**
+   * Scans all rooms in the database and heals their statuses/turnQueues
+   * to be consistent with current active user map states.
+   */
+  static async healRoomStatuses(): Promise<void> {
+    try {
+      const activeDbRooms = await prisma.room.findMany({
+        where: { status: { in: ['waiting', 'playing'] } },
+        include: { gameStates: true }
+      });
+
+      for (const room of activeDbRooms) {
+        const activeUsers = this.activeUsersMap.get(room.id) || [];
+        const onlineCount = activeUsers.filter(u => u.online).length;
+        
+        let targetStatus = room.status;
+        if (onlineCount === 0) {
+          targetStatus = 'idle';
+        } else if (onlineCount === 1) {
+          targetStatus = 'waiting';
+        } else {
+          targetStatus = 'playing';
+        }
+
+        if (targetStatus !== room.status) {
+          logger.info(`[Healer] Healing room "${room.name}" (${room.id}) status from ${room.status} to ${targetStatus}`);
+          await prisma.room.update({
+            where: { id: room.id },
+            data: { status: targetStatus }
+          });
+          
+          const gs = room.gameStates[0];
+          if (gs && (gs.turnQueue as string[]).length > 0 && onlineCount === 0) {
+            await prisma.gameState.update({
+              where: { roomId: room.id },
+              data: { turnQueue: [] }
+            });
+            // Sync cache
+            const cached = this.roomCache.get(room.id);
+            this.roomCache.set(room.id, {
+              boardSize: cached?.boardSize ?? 10,
+              gameState: {
+                pieceX: gs.pieceX,
+                pieceY: gs.pieceY,
+                targetX: gs.targetX,
+                targetY: gs.targetY,
+                score: gs.score,
+                turnQueue: [],
+              }
+            });
+          }
+        }
+      }
+    } catch (err: any) {
+      logger.error('[Healer] Error during room status healing:', err.message);
+    }
+  }
+
+  /**
    * Starts the periodic cleanup sweep that removes stale disconnected users.
    * Should be called once at server startup.
    */
   static startCleanupSweep(gracePeriodMs = 30_000): void {
+    // Run initial self-healing check on boot
+    this.healRoomStatuses().then(() => {
+      // Trigger a global rooms list update just in case any room got healed on startup
+      BroadcastService.broadcast(null, 'rooms_updated', null);
+    }).catch((err) => logger.error('[Healer Startup] Failed to run startup status healer:', err));
+
     setInterval(async () => {
       const now = Date.now();
       for (const [roomId, users] of this.activeUsersMap.entries()) {
@@ -438,6 +502,11 @@ export class RoomService {
           }
         }
       }
+
+      // Run self-healing check on every sweep interval
+      await this.healRoomStatuses();
+      // Broadcast global update in case statuses changed
+      BroadcastService.broadcast(null, 'rooms_updated', null);
     }, 30_000);
   }
 }
