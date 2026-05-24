@@ -62,6 +62,8 @@ function GameContent() {
             ...prev,
             pieceX: delta.piece ? delta.piece.x : prev.pieceX,
             pieceY: delta.piece ? delta.piece.y : prev.pieceY,
+            targetX: delta.target ? delta.target.x : prev.targetX,
+            targetY: delta.target ? delta.target.y : prev.targetY,
             score: delta.score !== undefined ? delta.score : prev.score,
             turnQueue: delta.turnQueue || prev.turnQueue,
           };

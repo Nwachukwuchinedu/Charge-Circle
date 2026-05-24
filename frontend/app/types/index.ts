@@ -41,6 +41,7 @@ export interface Room {
 
 export interface GameStateDelta {
   piece?: { x: number; y: number };
+  target?: { x: number; y: number };
   activePlayer?: string;
   score?: number;
   lastMove?: { userId: string; from: { x: number, y: number }; to: { x: number, y: number } };

@@ -1,6 +1,7 @@
 /** Payload shape for delta state updates sent to clients between full-state syncs. */
 export interface GameStateDelta {
   piece?: { x: number; y: number };
+  target?: { x: number; y: number };
   activePlayer?: string;
   score?: number;
   lastMove?: { userId: string; from: { x: number; y: number }; to: { x: number; y: number } };
