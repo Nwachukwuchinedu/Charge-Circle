@@ -1,20 +1,31 @@
 import { prisma } from '../utils/prisma.js';
 import { AppError } from '../utils/errors.js';
+import { ActiveUser, PlayerSummary } from '../types/room.types.js';
 
-interface ActiveUser {
-  id: string;
-  nickname: string;
-  online: boolean;
-  disconnectedAt?: number;
-}
-
+/**
+ * Manages room lifecycle: creation, joining, player tracking, and stale cleanup.
+ *
+ * Active players are tracked in-memory (via `activeUsersMap`) for fast lookups
+ * during gameplay. The map is kept in sync with the database turn queue.
+ * Disconnected players are removed after a 30-second grace period via a periodic sweep.
+ */
 export class RoomService {
+  /** In-memory map of roomId → active users. Not persisted across server restarts. */
   static activeUsersMap = new Map<string, ActiveUser[]>();
 
-  static async createRoom(ownerId: string, name: string) {
+  /**
+   * Creates a new room, initialises its game state, and registers the owner
+   * as the first active player.
+   *
+   * @param ownerId - User ID of the room creator
+   * @param name - Room display name
+   * @param maxPlayers - Optional player limit; null means unlimited
+   * @returns The created room with its game state and initial player list
+   */
+  static async createRoom(ownerId: string, name: string, maxPlayers: number | null = null) {
     const dbUser = await prisma.user.findUnique({
       where: { id: ownerId },
-      select: { nickname: true }
+      select: { nickname: true },
     });
     const nickname = dbUser?.nickname || 'Player';
 
@@ -22,6 +33,7 @@ export class RoomService {
       data: {
         name,
         ownerId,
+        maxPlayers,
         status: 'waiting',
         boardSize: 10,
         gameStates: {
@@ -31,43 +43,54 @@ export class RoomService {
             targetX: 2,
             targetY: 7,
             score: 0,
-            turnQueue: [ownerId]
-          }
-        }
+            turnQueue: [ownerId],
+          },
+        },
       },
-      include: { gameStates: true }
+      include: { gameStates: true },
     });
 
-    // Add owner to active users map
     this.activeUsersMap.set(room.id, [{ id: ownerId, nickname, online: true }]);
 
     return {
       ...room,
-      players: [{ id: ownerId, nickname, online: true }]
+      players: [{ id: ownerId, nickname, online: true }] as PlayerSummary[],
     };
   }
 
+  /**
+   * Returns all rooms that are currently waiting or in play,
+   * ordered by most recently created first.
+   */
   static async getRooms() {
     return prisma.room.findMany({
       where: { status: { in: ['waiting', 'playing'] } },
       include: { owner: { select: { nickname: true } } },
-      orderBy: { createdAt: 'desc' }
+      orderBy: { createdAt: 'desc' },
     });
   }
 
+  /**
+   * Adds a user to a room. If the room is at capacity (maxPlayers), rejects the join.
+   * Starts the game (status → playing) when the second player joins.
+   *
+   * @param roomId - Target room
+   * @param userId - Joining user
+   * @returns Full room state including game state, players, and recent chat messages
+   * @throws AppError if the room is full, finished, or not found
+   */
   static async joinRoom(roomId: string, userId: string) {
     const room = await prisma.room.findUnique({
       where: { id: roomId },
-      include: { gameStates: true }
+      include: { gameStates: true },
     });
-    
+
     if (!room) throw new AppError('Room not found');
     if (room.status === 'finished') throw new AppError('Game already finished');
 
-    // Fetch user nickname from DB
     const dbUser = await prisma.user.findUnique({
       where: { id: userId },
-      select: { nickname: true }
+      select: { nickname: true },
     });
     const nickname = dbUser?.nickname || 'Player';
 
@@ -75,12 +98,16 @@ export class RoomService {
       this.activeUsersMap.set(roomId, []);
     }
     const users = this.activeUsersMap.get(roomId)!;
-    const existing = users.find(u => u.id === userId);
+
+    const existing = users.find((u) => u.id === userId);
     if (existing) {
       existing.online = true;
-      existing.nickname = nickname; // update nickname
+      existing.nickname = nickname;
       existing.disconnectedAt = undefined;
     } else {
+      if (room.maxPlayers !== null && users.length >= room.maxPlayers) {
+        throw new AppError('Room is full');
+      }
       users.push({ id: userId, nickname, online: true });
     }
 
@@ -94,72 +121,93 @@ export class RoomService {
       updatedQueue.push(userId);
       await prisma.gameState.update({
         where: { roomId },
-        data: { turnQueue: updatedQueue }
+        data: { turnQueue: updatedQueue },
       });
     }
 
     if (updatedQueue.length > 1 && room.status === 'waiting') {
       await prisma.room.update({
         where: { id: roomId },
-        data: { status: 'playing' }
+        data: { status: 'playing' },
       });
     }
 
     const updatedRoom = await prisma.room.findUnique({
       where: { id: roomId },
-      include: { 
-        gameStates: true, 
+      include: {
+        gameStates: true,
         owner: { select: { nickname: true } },
         chatMessages: {
           include: { user: { select: { nickname: true } } },
           take: 50,
-          orderBy: { createdAt: 'asc' }
-        }
-      }
+          orderBy: { createdAt: 'asc' },
+        },
+      },
     });
 
     if (!updatedRoom) return null;
 
     return {
       ...updatedRoom,
-      players: users.map(u => ({ id: u.id, nickname: u.nickname, online: u.online }))
+      players: users.map((u) => ({
+        id: u.id,
+        nickname: u.nickname,
+        online: u.online,
+      })),
     };
   }
 
-  static markUserDisconnected(roomId: string, userId: string) {
+  /**
+   * Marks a user as disconnected in the in-memory map.
+   * The user will be removed from the room after the 30-second grace period
+   * by the periodic cleanup sweep.
+   */
+  static markUserDisconnected(roomId: string, userId: string): void {
     const users = this.activeUsersMap.get(roomId);
     if (!users) return;
-    const user = users.find(u => u.id === userId);
+    const user = users.find((u) => u.id === userId);
     if (user) {
       user.online = false;
       user.disconnectedAt = Date.now();
     }
   }
-}
 
-// 30-second lazy cleanup sweep to remove disconnected users
-setInterval(async () => {
-  const now = Date.now();
-  for (const [roomId, users] of RoomService.activeUsersMap.entries()) {
-    let changed = false;
-    for (let i = users.length - 1; i >= 0; i--) {
-      const user = users[i];
-      if (!user.online && user.disconnectedAt && now - user.disconnectedAt > 30000) {
-        users.splice(i, 1);
-        changed = true;
-        
-        // Remove from DB turn queue
-        try {
-          const room = await prisma.gameState.findUnique({ where: { roomId } });
-          if (room) {
-            const queue = (room.turnQueue as string[]) || [];
-            const newQueue = queue.filter(u => u !== user.id);
-            await prisma.gameState.update({ where: { roomId }, data: { turnQueue: newQueue } });
+  /**
+   * Starts the periodic cleanup sweep that removes stale disconnected users.
+   * Should be called once at server startup.
+   *
+   * Users who have been disconnected for longer than `gracePeriodMs` are
+   * removed from the in-memory map and the database turn queue.
+   */
+  static startCleanupSweep(gracePeriodMs = 30_000): void {
+    setInterval(async () => {
+      const now = Date.now();
+      for (const [roomId, users] of this.activeUsersMap.entries()) {
+        let changed = false;
+        for (let i = users.length - 1; i >= 0; i--) {
+          const user = users[i];
+          if (!user.online && user.disconnectedAt && now - user.disconnectedAt > gracePeriodMs) {
+            users.splice(i, 1);
+            changed = true;
+
+            try {
+              const gs = await prisma.gameState.findUnique({ where: { roomId } });
+              if (gs) {
+                const queue = (gs.turnQueue as string[]) ?? [];
+                const filtered = queue.filter((u) => u !== user.id);
+                if (filtered.length !== queue.length) {
+                  await prisma.gameState.update({
+                    where: { roomId },
+                    data: { turnQueue: filtered },
+                  });
+                }
+              }
+            } catch (e) {
+              console.error('[Sweep] Error removing disconnected user from DB queue', e);
+            }
           }
-        } catch (e) {
-          console.error('[Sweep] Error removing user from DB queue', e);
         }
       }
-    }
+    }, 30_000);
   }
-}, 30000);
+}

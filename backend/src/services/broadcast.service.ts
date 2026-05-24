@@ -1,34 +1,61 @@
 import { Server } from 'socket.io';
 import { SocketResponse } from '../utils/socketResponse.js';
 
+/**
+ * Payload shape for delta state updates sent to clients between full-state syncs.
+ * Only fields that changed are included — clients patch their local state.
+ */
 export interface GameStateDelta {
   piece?: { x: number; y: number };
   activePlayer?: string;
   score?: number;
-  lastMove?: { userId: string; from: { x: number, y: number }; to: { x: number, y: number } };
+  lastMove?: { userId: string; from: { x: number; y: number }; to: { x: number; y: number } };
   gridCharged?: boolean;
 }
 
+/**
+ * Throttled broadcast service that batches state updates per room.
+ *
+ * Instead of emitting a Socket.io event on every single move, deltas are
+ * queued in a Map and flushed at a fixed 100ms interval. This reduces
+ * broadcast overhead from O(moves/second) to a constant 10 broadcasts/second,
+ * which is critical when scaling to thousands of concurrent players.
+ */
 export class BroadcastService {
   private static io: Server;
   private static pendingDeltas = new Map<string, GameStateDelta>();
   private static interval: NodeJS.Timeout | null = null;
 
-  static initialize(ioInstance: Server) {
+  /**
+   * Initialises the service with the Socket.io server instance and starts
+   * the flush interval. Should be called once at server startup.
+   */
+  static initialize(ioInstance: Server): void {
     this.io = ioInstance;
     if (!this.interval) {
       this.interval = setInterval(() => this.flush(), 100);
     }
   }
 
-  static queueDelta(roomId: string, delta: Partial<GameStateDelta>) {
+  /**
+   * Queues a delta update for the given room.
+   * Subsequent calls within the same tick merge into a single payload.
+   *
+   * @param roomId - Target room identifier
+   * @param delta - Partial state delta to merge
+   */
+  static queueDelta(roomId: string, delta: Partial<GameStateDelta>): void {
     const existing = this.pendingDeltas.get(roomId) || {};
     this.pendingDeltas.set(roomId, { ...existing, ...delta });
   }
 
-  private static flush() {
+  /**
+   * Flushes all queued deltas by broadcasting each room's latest delta.
+   * Called automatically every 100ms by the interval timer.
+   */
+  private static flush(): void {
     if (this.pendingDeltas.size === 0) return;
-    
+
     for (const [roomId, delta] of this.pendingDeltas.entries()) {
       SocketResponse.broadcast(this.io.to(roomId), roomId, 'game_state_delta', delta);
     }

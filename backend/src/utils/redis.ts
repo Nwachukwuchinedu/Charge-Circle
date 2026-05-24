@@ -2,7 +2,16 @@ import { createClient } from 'redis';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { Server } from 'socket.io';
 
-export const setupRedis = async (io: Server) => {
+/**
+ * Attaches a Redis pub/sub adapter to the Socket.io server.
+ *
+ * Enables horizontal scaling by forwarding events between multiple
+ * Node.js instances. Falls back gracefully to in-memory mode when
+ * `REDIS_URL` is not set or unreachable.
+ *
+ * @param io - The Socket.io server instance
+ */
+export const setupRedis = async (io: Server): Promise<void> => {
   const redisUrl = process.env.REDIS_URL;
 
   if (!redisUrl) {

@@ -1,8 +1,15 @@
 /**
- * Custom application error class.
- * Operational errors represent expected business rule/validation failures (e.g. "Not your turn", "Invalid credentials")
- * which are safe to expose to the frontend.
- * Non-operational errors (like DB timeouts, connection failures, syntax errors) are masked as "Something went wrong".
+ * Custom application error class for expected business rule failures.
+ *
+ * Operational errors represent predictable failures such as
+ * "Not your turn", "Invalid credentials", or "Room not found".
+ * These are safe to expose to the frontend because they convey
+ * meaningful information about the user's action.
+ *
+ * Non-operational errors (DB timeouts, connection failures, syntax errors)
+ * are masked as "Something went wrong" before reaching the client.
+ *
+ * @example throw new AppError('Not your turn');
  */
 export class AppError extends Error {
   public readonly isOperational = true;

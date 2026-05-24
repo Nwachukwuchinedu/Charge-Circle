@@ -5,27 +5,41 @@ import { throttleSocket } from '../utils/throttle.js';
 import { SocketResponse } from '../utils/socketResponse.js';
 import { logger } from '../utils/logger.js';
 
-export const setupChatHandlers = (io: Server, socket: AuthSocket) => {
-  socket.on('send_chat', async (data: { roomId: string, message: string }) => {
+/**
+ * Registers chat-related Socket.io event handlers on the given socket.
+ *
+ * Events:
+ * - `send_chat`: Relays a message to all room members and persists it to the DB.
+ *
+ * Messages are broadcast optimistically (before the DB write completes) so
+ * the sender and other users see the message instantly.
+ *
+ * @param io - The Socket.io server instance (used for broadcasting)
+ * @param socket - The authenticated client socket
+ */
+export const setupChatHandlers = (io: Server, socket: AuthSocket): void => {
+  socket.on('send_chat', async (data: { roomId: string; message: string }) => {
     try {
-      if (!throttleSocket(`chat_${socket.userId}`, 500)) {
-        return; // Max 2 messages per second
-      }
+      if (!throttleSocket(`chat_${socket.userId}`, 500)) return;
 
-      // Emit optimistically — don't wait for DB
       const optimisticMsg = {
         id: Date.now(),
         roomId: data.roomId,
         userId: socket.userId,
         message: data.message,
         createdAt: new Date().toISOString(),
-        user: { nickname: socket.nickname || 'Player' }
+        user: { nickname: socket.nickname || 'Player' },
       };
+
       SocketResponse.broadcast(io.to(data.roomId), data.roomId, 'chat_message', optimisticMsg);
 
-      // Persist in background (fire-and-forget)
-      ChatService.saveMessage(data.roomId, socket.userId!, data.message)
-        .catch(err => logger.error('[Chat] Failed to persist message:', { error: err.message, roomId: data.roomId, userId: socket.userId }));
+      ChatService.saveMessage(data.roomId, socket.userId!, data.message).catch((err) =>
+        logger.error('[Chat] Failed to persist message:', {
+          error: err.message,
+          roomId: data.roomId,
+          userId: socket.userId,
+        }),
+      );
     } catch (error: any) {
       SocketResponse.error(socket, error.message, 'game_error', error);
     }
