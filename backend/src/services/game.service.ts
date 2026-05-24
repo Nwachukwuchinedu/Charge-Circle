@@ -2,20 +2,7 @@ import { prisma } from '../utils/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 import { RoomService } from './room.service.js';
-
-/** Result returned after a successful piece move. */
-export interface MoveResult {
-  state: {
-    pieceX: number;
-    pieceY: number;
-    targetX: number;
-    targetY: number;
-    score: number;
-    turnQueue: unknown;
-  };
-  from: { x: number; y: number };
-  scored: boolean;
-}
+import { MoveResult } from '../types/game.types.js';
 
 /**
  * Core game logic for moving the shared Energy Orb and managing turn rotation.

@@ -2,16 +2,7 @@ import bcrypt from 'bcrypt';
 import { prisma } from '../utils/prisma.js';
 import { signToken } from '../utils/jwt.js';
 import { AppError } from '../utils/errors.js';
-
-/** Shape returned by signup and login operations. */
-export interface AuthResult {
-  token: string;
-  user: {
-    id: string;
-    email: string;
-    nickname: string;
-  };
-}
+import { AuthResult } from '../types/auth.types.js';
 
 /**
  * Handles user registration and authentication.

@@ -1,17 +1,6 @@
 import { Server } from 'socket.io';
 import { SocketResponse } from '../utils/socketResponse.js';
-
-/**
- * Payload shape for delta state updates sent to clients between full-state syncs.
- * Only fields that changed are included — clients patch their local state.
- */
-export interface GameStateDelta {
-  piece?: { x: number; y: number };
-  activePlayer?: string;
-  score?: number;
-  lastMove?: { userId: string; from: { x: number; y: number }; to: { x: number; y: number } };
-  gridCharged?: boolean;
-}
+import { GameStateDelta } from '../types/game.types.js';
 
 /**
  * Throttled broadcast service that batches state updates per room.
