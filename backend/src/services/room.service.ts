@@ -106,7 +106,7 @@ export class RoomService {
    */
   static async getRooms(): Promise<RoomListItem[]> {
     const rooms = await prisma.room.findMany({
-      where: { status: { in: ['waiting', 'playing'] } },
+      where: { status: { in: ['waiting', 'playing', 'idle'] } },
       include: { owner: { select: { nickname: true } } },
       orderBy: { createdAt: 'desc' },
     });
@@ -224,10 +224,20 @@ export class RoomService {
       });
     }
 
-    if (updatedQueue.length > 1 && room.status === 'waiting') {
+    // Determine the new status based on player count
+    let newStatus = room.status;
+    if (updatedQueue.length === 0) {
+      newStatus = 'idle';
+    } else if (updatedQueue.length === 1) {
+      newStatus = 'waiting';
+    } else {
+      newStatus = 'playing';
+    }
+
+    if (newStatus !== room.status) {
       await prisma.room.update({
         where: { id: roomId },
-        data: { status: 'playing' },
+        data: { status: newStatus },
       });
     }
 
@@ -283,6 +293,29 @@ export class RoomService {
               turnQueue: filtered,
             },
           });
+
+          // Determine and update room status
+          const roomRecord = await prisma.room.findUnique({
+            where: { id: roomId },
+            select: { status: true },
+          });
+          if (roomRecord) {
+            let newStatus = roomRecord.status;
+            if (filtered.length === 0) {
+              newStatus = 'idle';
+            } else if (filtered.length === 1) {
+              newStatus = 'waiting';
+            } else {
+              newStatus = 'playing';
+            }
+
+            if (newStatus !== roomRecord.status) {
+              await prisma.room.update({
+                where: { id: roomId },
+                data: { status: newStatus },
+              });
+            }
+          }
 
           // Broadcast delta because turnQueue changed!
           BroadcastService.queueDelta(roomId, {
@@ -353,6 +386,29 @@ export class RoomService {
                       turnQueue: filtered,
                     },
                   });
+
+                  // Determine and update room status
+                  const roomRecord = await prisma.room.findUnique({
+                    where: { id: roomId },
+                    select: { status: true },
+                  });
+                  if (roomRecord) {
+                    let newStatus = roomRecord.status;
+                    if (filtered.length === 0) {
+                      newStatus = 'idle';
+                    } else if (filtered.length === 1) {
+                      newStatus = 'waiting';
+                    } else {
+                      newStatus = 'playing';
+                    }
+
+                    if (newStatus !== roomRecord.status) {
+                      await prisma.room.update({
+                        where: { id: roomId },
+                        data: { status: newStatus },
+                      });
+                    }
+                  }
 
                   // Broadcast delta update because turnQueue changed!
                   BroadcastService.queueDelta(roomId, {
