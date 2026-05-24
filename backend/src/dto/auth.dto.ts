@@ -1,14 +1,16 @@
 import { z } from 'zod';
 
+const stripHtml = (v: string) => v.replace(/<[^>]*>/g, '').trim();
+
 export const SignupDto = z.object({
-  nickname: z.string().min(2).max(20),
-  email:    z.string().email(),
-  password: z.string().min(6).max(100)
+  nickname: z.string().min(1).max(30).transform(stripHtml),
+  email: z.string().email().transform((v) => v.toLowerCase().trim()),
+  password: z.string().min(8),
 });
 export type SignupDto = z.infer<typeof SignupDto>;
 
 export const LoginDto = z.object({
-  email:    z.string().email(),
-  password: z.string()
+  email: z.string().transform((v) => v.toLowerCase().trim()),
+  password: z.string(),
 });
 export type LoginDto = z.infer<typeof LoginDto>;
