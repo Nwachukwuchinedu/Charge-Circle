@@ -43,7 +43,7 @@ export const api = {
 
     let response = await fetch(url, options);
 
-    if (response.status === 401 && endpoint !== '/auth/refresh') {
+    if (response.status === 401 && endpoint !== '/auth/refresh' && endpoint !== '/auth/login' && endpoint !== '/auth/signup') {
       response = await refreshAndRetry(url, options);
     }
 

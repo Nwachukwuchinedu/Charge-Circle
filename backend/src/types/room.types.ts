@@ -40,7 +40,7 @@ export type RoomWithDetails = Prisma.RoomGetPayload<{
 /** Room shape returned to the room list. */
 export type RoomListItem = Prisma.RoomGetPayload<{
   include: { owner: { select: { nickname: true } } };
-}>;
+}> & { players: PlayerSummary[] };
 
 /** Created room with game state and players. */
 export type CreatedRoom = Prisma.RoomGetPayload<{

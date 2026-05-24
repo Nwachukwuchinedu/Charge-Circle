@@ -104,10 +104,22 @@ export class RoomService {
    * ordered by most recently created first.
    */
   static async getRooms(): Promise<RoomListItem[]> {
-    return prisma.room.findMany({
+    const rooms = await prisma.room.findMany({
       where: { status: { in: ['waiting', 'playing'] } },
       include: { owner: { select: { nickname: true } } },
       orderBy: { createdAt: 'desc' },
+    });
+
+    return rooms.map((room) => {
+      const activeUsers = this.activeUsersMap.get(room.id) || [];
+      return {
+        ...room,
+        players: activeUsers.map((u) => ({
+          id: u.id,
+          nickname: u.nickname,
+          online: u.online,
+        })),
+      };
     });
   }
 
