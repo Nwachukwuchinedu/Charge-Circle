@@ -2,6 +2,7 @@ import { prisma } from '../utils/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 import { ActiveUser, PlayerSummary, RoomCacheEntry, RoomWithDetails, RoomListItem, CreatedRoom } from '../types/room.types.js';
+import { BroadcastService } from './broadcast.service.js';
 
 /**
  * Manages room lifecycle: creation, joining, player tracking, and stale cleanup.
@@ -124,6 +125,37 @@ export class RoomService {
   }
 
   /**
+   * Fetches room details including players list, chat messages, and game status.
+   */
+  static async getRoomDetails(roomId: string): Promise<RoomWithDetails | null> {
+    const room = await prisma.room.findUnique({
+      where: { id: roomId },
+      include: {
+        gameStates: true,
+        owner: { select: { nickname: true } },
+        chatMessages: {
+          include: { user: { select: { nickname: true } } },
+          take: 50,
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+
+    if (!room) return null;
+
+    const users = this.activeUsersMap.get(roomId) || [];
+
+    return {
+      ...room,
+      players: users.map((u) => ({
+        id: u.id,
+        nickname: u.nickname,
+        online: u.online,
+      })),
+    };
+  }
+
+  /**
    * Adds a user to a room. Seeds the room cache on first access.
    *
    * @param roomId - Target room
@@ -199,29 +231,20 @@ export class RoomService {
       });
     }
 
-    const updatedRoom = await prisma.room.findUnique({
-      where: { id: roomId },
-      include: {
-        gameStates: true,
-        owner: { select: { nickname: true } },
-        chatMessages: {
-          include: { user: { select: { nickname: true } } },
-          take: 50,
-          orderBy: { createdAt: 'asc' },
-        },
+    // Ensure room cache is fully updated with the new turnQueue
+    this.roomCache.set(roomId, {
+      boardSize: room.boardSize,
+      gameState: {
+        pieceX: gameState.pieceX,
+        pieceY: gameState.pieceY,
+        targetX: gameState.targetX,
+        targetY: gameState.targetY,
+        score: gameState.score,
+        turnQueue: updatedQueue,
       },
     });
 
-    if (!updatedRoom) return null;
-
-    return {
-      ...updatedRoom,
-      players: users.map((u) => ({
-        id: u.id,
-        nickname: u.nickname,
-        online: u.online,
-      })),
-    };
+    return this.getRoomDetails(roomId);
   }
 
   /**
@@ -247,10 +270,12 @@ export class RoomService {
     setInterval(async () => {
       const now = Date.now();
       for (const [roomId, users] of this.activeUsersMap.entries()) {
+        let changed = false;
         for (let i = users.length - 1; i >= 0; i--) {
           const user = users[i];
           if (!user.online && user.disconnectedAt && now - user.disconnectedAt > gracePeriodMs) {
             users.splice(i, 1);
+            changed = true;
 
             try {
               const gs = await prisma.gameState.findUnique({ where: { roomId } });
@@ -258,9 +283,28 @@ export class RoomService {
                 const queue = (gs.turnQueue as string[]) ?? [];
                 const filtered = queue.filter((u) => u !== user.id);
                 if (filtered.length !== queue.length) {
-                  await prisma.gameState.update({
+                  const updated = await prisma.gameState.update({
                     where: { roomId },
                     data: { turnQueue: filtered },
+                  });
+                  // Update cache too!
+                  const cached = this.roomCache.get(roomId);
+                  this.roomCache.set(roomId, {
+                    boardSize: cached?.boardSize ?? 10,
+                    gameState: {
+                      pieceX: updated.pieceX,
+                      pieceY: updated.pieceY,
+                      targetX: updated.targetX,
+                      targetY: updated.targetY,
+                      score: updated.score,
+                      turnQueue: filtered,
+                    },
+                  });
+
+                  // Broadcast delta update because turnQueue changed!
+                  BroadcastService.queueDelta(roomId, {
+                    turnQueue: filtered,
+                    activePlayer: filtered[0] || '',
                   });
                 }
               }
@@ -271,6 +315,17 @@ export class RoomService {
                 error: e.message,
               });
             }
+          }
+        }
+
+        if (changed) {
+          try {
+            const details = await RoomService.getRoomDetails(roomId);
+            if (details) {
+              BroadcastService.broadcast(roomId, 'room_state_update', details);
+            }
+          } catch (err: any) {
+            logger.error('[Sweep Broadcast] Failed to broadcast room state update:', err.message);
           }
         }
       }

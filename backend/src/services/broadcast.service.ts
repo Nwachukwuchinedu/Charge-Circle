@@ -1,6 +1,7 @@
 import { Server } from 'socket.io';
 import { SocketResponse } from '../utils/socketResponse.js';
 import { GameStateDelta } from '../types/game.types.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * Throttled broadcast service that batches state updates per room.
@@ -36,6 +37,17 @@ export class BroadcastService {
   static queueDelta(roomId: string, delta: Partial<GameStateDelta>): void {
     const existing = this.pendingDeltas.get(roomId) || {};
     this.pendingDeltas.set(roomId, { ...existing, ...delta });
+  }
+
+  /**
+   * Immediately broadcasts an event to all sockets in a room.
+   */
+  static broadcast(roomId: string, event: string, payload: any): void {
+    if (this.io) {
+      SocketResponse.broadcast(this.io.to(roomId), roomId, event, payload);
+    } else {
+      logger.warn(`[BroadcastService] Attempted to broadcast to room ${roomId} before initialisation`);
+    }
   }
 
   /**
