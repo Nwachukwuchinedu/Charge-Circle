@@ -269,44 +269,6 @@ export class RoomService {
   static startCleanupSweep(gracePeriodMs = 30_000): void {
     setInterval(async () => {
       const now = Date.now();
-
-      // Seed activeUsersMap with any users in database turnQueues who are not yet present in memory
-      try {
-        const gameStates = await prisma.gameState.findMany({
-          select: { roomId: true, turnQueue: true },
-        });
-
-        for (const gs of gameStates) {
-          const roomId = gs.roomId;
-          const queue = (gs.turnQueue as string[]) ?? [];
-
-          if (!this.activeUsersMap.has(roomId)) {
-            this.activeUsersMap.set(roomId, []);
-          }
-          const users = this.activeUsersMap.get(roomId)!;
-
-          for (const userId of queue) {
-            const exists = users.some((u) => u.id === userId);
-            if (!exists) {
-              const dbUser = await prisma.user.findUnique({
-                where: { id: userId },
-                select: { nickname: true },
-              });
-              const nickname = dbUser?.nickname || 'Player';
-
-              users.push({
-                id: userId,
-                nickname,
-                online: false,
-                disconnectedAt: now,
-              });
-            }
-          }
-        }
-      } catch (err: any) {
-        logger.error('[Sweep] Error pre-initializing offline users:', err.message);
-      }
-
       for (const [roomId, users] of this.activeUsersMap.entries()) {
         let changed = false;
         for (let i = users.length - 1; i >= 0; i--) {
