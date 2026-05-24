@@ -4,66 +4,60 @@ import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useSocket } from '../../hooks/useSocket';
 import { useAuth } from '../../hooks/useAuth';
-import GameGrid from '../components/GameGrid';
+import GameGrid from '../components/game/GameGrid';
 import QueuePanel from '../components/QueuePanel';
 import ChatPanel from '../components/ChatPanel';
+import TurnBanner from '../components/game/TurnBanner';
+import { HUDToggle, HUDDrawer } from '../components/game/HUDOverlay';
+import ConnectionBadge from '../components/ui/ConnectionBadge';
 import { GameState, Room, GameStateDelta } from '../types';
+import { Users, MessageSquare, ArrowLeft, Zap } from 'lucide-react';
 
 function GameContent() {
   const searchParams = useSearchParams();
   const roomId = searchParams.get('roomId');
   const router = useRouter();
-  
+
   const { user, loading } = useAuth();
   const { socket, connected } = useSocket();
-  
+
   const [room, setRoom] = useState<Room | null>(null);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [errorText, setErrorText] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login');
-    }
+    if (!loading && !user) router.push('/login');
   }, [user, loading, router]);
 
   useEffect(() => {
     if (socket && connected && roomId) {
       socket.emit('join_room', { roomId }, (response: any) => {
-        if (!response.success) {
-          setErrorText(response.error);
-        } else {
+        if (!response.success) setErrorText(response.error);
+        else {
           setRoom(response.room);
-          if (response.room.gameStates && response.room.gameStates.length > 0) {
-            setGameState(response.room.gameStates[0]);
-          }
+          if (response.room.gameStates?.[0]) setGameState(response.room.gameStates[0]);
         }
       });
 
       socket.on('room_state_update', (updatedRoom: Room) => {
         setRoom(updatedRoom);
-        if (updatedRoom.gameStates && updatedRoom.gameStates.length > 0) {
-          setGameState(updatedRoom.gameStates[0]);
-        }
+        if (updatedRoom.gameStates?.[0]) setGameState(updatedRoom.gameStates[0]);
       });
 
       socket.on('game_state_delta', (delta: GameStateDelta) => {
-        setGameState(prev => {
+        setGameState((prev) => {
           if (!prev) return null;
-          
-          // Patch the queue (rotate if active player changed)
           let nextQueue = [...prev.turnQueue];
           if (delta.activePlayer && prev.turnQueue[0] !== delta.activePlayer) {
-             const oldActive = nextQueue.shift();
-             if (oldActive) nextQueue.push(oldActive);
+            const old = nextQueue.shift();
+            if (old) nextQueue.push(old);
           }
-          
           return {
             ...prev,
             pieceX: delta.piece ? delta.piece.x : prev.pieceX,
             pieceY: delta.piece ? delta.piece.y : prev.pieceY,
             score: delta.score !== undefined ? delta.score : prev.score,
-            turnQueue: nextQueue
+            turnQueue: nextQueue,
           };
         });
       });
@@ -83,75 +77,106 @@ function GameContent() {
     };
   }, [socket, connected, roomId]);
 
-  if (!roomId) return <div className="text-white p-8">No Room ID provided. Please join from the Lobby.</div>;
-  if (!user || !gameState || !room) return <div className="min-h-screen bg-[#060709] flex items-center justify-center text-indigo-400 font-mono">Synchronizing Grid State...</div>;
+  if (!roomId) return <div className="text-white p-8">No Room ID provided. Join from the Lobby.</div>;
+  if (!user || !gameState || !room) return (
+    <div className="min-h-screen bg-[#060709] flex items-center justify-center text-indigo-400 font-mono text-sm">
+      <span className="flex items-center gap-3">
+        <span className="h-2 w-2 rounded-full bg-indigo-400 animate-pulse" />
+        Synchronizing Grid State...
+      </span>
+    </div>
+  );
 
-  const handleMovePiece = (newX: number, newY: number) => {
-    if (socket && connected) {
-      socket.emit('move_piece', { roomId, toX: newX, toY: newY });
-    }
+  const handleMove = (newX: number, newY: number) => {
+    if (socket && connected) socket.emit('move_piece', { roomId, toX: newX, toY: newY });
   };
 
-  const isMyTurn = gameState.turnQueue && gameState.turnQueue[0] === user.id;
+  const isMyTurn = gameState.turnQueue?.[0] === user.id;
+  const activePlayerId = gameState.turnQueue?.[0];
 
-  const queueForPanel = gameState.turnQueue.map((id, index) => {
-    const player = room.players?.find(p => p.id === id);
+  const queueForPanel = gameState.turnQueue.map((id, i) => {
+    const player = room.players?.find((p) => p.id === id);
     return {
       id,
       nickname: player?.nickname || 'Player',
       counter: 0,
-      myTurn: index === 0,
-      online: player ? player.online : true 
+      myTurn: i === 0,
+      online: player ? player.online : true,
     };
   });
 
+  const activeNickname = room.players?.find((p) => p.id === activePlayerId)?.nickname || activePlayerId?.slice(0, 6) || 'Unknown';
+
   return (
-    <div className="flex flex-col min-h-screen bg-[#060709] text-zinc-100 font-sans antialiased">
-      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] rounded-full bg-indigo-900/10 blur-[120px] pointer-events-none"></div>
-      
-      <header className="sticky top-0 z-30 border-b border-zinc-900/60 bg-[#060709]/80 backdrop-blur-md px-6 py-4 flex justify-between items-center">
-        <div className="flex items-center gap-4">
-          <button onClick={() => router.push('/')} className="text-zinc-400 hover:text-white px-4 py-2 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-zinc-700 text-sm transition-all">
-            ← Disconnect Node
+    <div className="fixed inset-0 bg-[#060709] text-zinc-100 flex flex-col">
+      {/* Ambient glow */}
+      <div className="absolute top-0 left-1/4 w-[600px] h-[600px] rounded-full bg-indigo-900/10 blur-[150px] pointer-events-none" />
+      <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] rounded-full bg-cyan-900/10 blur-[120px] pointer-events-none" />
+
+      {/* Top bar */}
+      <header className="relative z-30 flex items-center justify-between px-4 py-2.5 border-b border-zinc-900/60 bg-[#060709]/80 backdrop-blur-md shrink-0">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => router.push('/')}
+            className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-white bg-zinc-900/60 hover:bg-zinc-800 border border-zinc-800 px-3 py-1.5 rounded-lg transition-all"
+          >
+            <ArrowLeft size={14} /> Lobby
           </button>
-          <div>
-            <h1 className="text-lg font-bold text-white tracking-tight">Room: <span className="text-indigo-300">{room.name}</span></h1>
-            <p className="text-[10px] text-zinc-500 uppercase flex gap-2">
-              <span>Grid: {room.boardSize}x{room.boardSize}</span>
-              <span>Status: <span className="text-emerald-400">{room.status}</span></span>
-            </p>
+          <div className="hidden sm:block text-xs text-zinc-500">
+            Room <span className="text-indigo-300 font-medium">{room.name}</span>
+            <span className="mx-2">·</span>
+            {room.boardSize}x{room.boardSize}
           </div>
         </div>
-        <div className="flex flex-col items-end">
-          <span className="text-[10px] text-zinc-500 uppercase tracking-widest">Total Energy</span>
-          <span className="text-2xl font-mono text-cyan-400 font-black">{gameState.score} GW</span>
+
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+            <Zap size={12} className="text-cyan-400" />
+            <span className="font-mono text-cyan-400 font-bold text-sm">{gameState.score}</span>
+            <span className="hidden sm:inline">GW</span>
+          </div>
+          <ConnectionBadge connected={connected} />
         </div>
       </header>
 
-      <main className="flex-1 max-w-7xl w-full mx-auto p-6 flex flex-col lg:flex-row gap-8 z-10">
-        <div className="flex-1 flex flex-col items-center gap-4">
-          {errorText && (
-            <div className="w-full max-w-[500px] p-4 rounded-xl border border-rose-500/30 bg-rose-500/5 text-rose-400 text-sm font-medium shadow-lg">
-              <span className="uppercase text-xs font-bold mr-2 text-rose-500 border border-rose-500/50 px-1 rounded">Alert</span>
-              {errorText}
-            </div>
-          )}
-          
-          <GameGrid
-            piece={{ x: gameState.pieceX, y: gameState.pieceY }}
-            target={{ x: gameState.targetX, y: gameState.targetY }}
-            boardSize={room.boardSize}
-            myTurn={isMyTurn}
-            onMove={handleMovePiece}
-          />
+      {/* Main area: board fills everything */}
+      <main className="relative flex-1 flex flex-col min-h-0">
+        {/* Turn banner above board */}
+        <div className="absolute top-2 left-1/2 -translate-x-1/2 z-40">
+          <TurnBanner isMyTurn={isMyTurn} activeNickname={activeNickname} />
         </div>
 
-        <div className="w-full lg:w-[350px] flex flex-col gap-6">
-          <QueuePanel queue={queueForPanel} myUserId={user.id} myNickname={user.nickname} />
-          <div className="flex-1 min-h-[400px]">
-            <ChatPanel roomId={roomId} socket={socket} initialMessages={room.chatMessages} />
+        {/* Error toast */}
+        {errorText && (
+          <div className="absolute top-14 left-1/2 -translate-x-1/2 z-40 px-4 py-2 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-medium backdrop-blur-sm shadow-xl">
+            {errorText}
           </div>
+        )}
+
+        {/* Board */}
+        <GameGrid
+          piece={{ x: gameState.pieceX, y: gameState.pieceY }}
+          target={{ x: gameState.targetX, y: gameState.targetY }}
+          boardSize={room.boardSize}
+          myTurn={isMyTurn}
+          onMove={handleMove}
+        />
+
+        {/* Floating HUD controls (bottom-right) */}
+        <div className="absolute bottom-4 right-4 flex items-center gap-2 z-30">
+          <HUDToggle side="queue" label="Queue" icon={<Users size={16} />} count={queueForPanel.length} />
+          <HUDToggle side="chat" label="Chat" icon={<MessageSquare size={16} />} />
         </div>
+
+        {/* Queue Drawer */}
+        <HUDDrawer side="queue" title="Grid Queue" icon={<Users size={16} />}>
+          <QueuePanel queue={queueForPanel} myUserId={user.id} myNickname={user.nickname} />
+        </HUDDrawer>
+
+        {/* Chat Drawer */}
+        <HUDDrawer side="chat" title="Comms Channel" icon={<MessageSquare size={16} />}>
+          <ChatPanel roomId={roomId} socket={socket} initialMessages={room.chatMessages} />
+        </HUDDrawer>
       </main>
     </div>
   );
@@ -159,7 +184,16 @@ function GameContent() {
 
 export default function Game() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-[#060709] flex items-center justify-center text-indigo-400 font-mono">Synchronizing Grid State...</div>}>
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-[#060709] flex items-center justify-center text-indigo-400 font-mono text-sm">
+          <span className="flex items-center gap-3">
+            <span className="h-2 w-2 rounded-full bg-indigo-400 animate-pulse" />
+            Synchronizing Grid State...
+          </span>
+        </div>
+      }
+    >
       <GameContent />
     </Suspense>
   );

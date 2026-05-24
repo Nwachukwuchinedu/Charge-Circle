@@ -5,32 +5,28 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../hooks/useAuth';
 import { useSocket } from '../hooks/useSocket';
 import { useRoomList } from '../hooks/useRoomList';
-import { LogOut, Plus, Users, Play } from 'lucide-react';
+import ConnectionBadge from './components/ui/ConnectionBadge';
+import StatStrip from './components/lobby/StatStrip';
+import type { StatItem } from './components/lobby/StatStrip';
+import RoomCard from './components/lobby/RoomCard';
+import CreateRoomModal from './components/lobby/CreateRoomModal';
+import { LogOut, Radio } from 'lucide-react';
 
 export default function Lobby() {
   const { user, loading, logout } = useAuth();
   const { socket, connected } = useSocket();
   const router = useRouter();
-  const [newRoomName, setNewRoomName] = useState('');
-  const [creating, setCreating] = useState(false);
 
   const { data: rooms = [], isLoading: isLoadingRooms } = useRoomList(socket, connected);
 
   useEffect(() => {
-    if (!loading && !user) {
-      router.push('/login');
-    }
+    if (!loading && !user) router.push('/login');
   }, [user, loading, router]);
 
-  const handleCreateRoom = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newRoomName.trim() || !socket) return;
-    
-    setCreating(true);
-    socket.emit('create_room', { name: newRoomName }, (response: any) => {
-      setCreating(false);
+  const handleCreateRoom = (name: string, maxPlayers: number | null) => {
+    if (!socket) return;
+    socket.emit('create_room', { name, maxPlayers }, (response: any) => {
       if (response.success) {
-        setNewRoomName('');
         router.push(`/game?roomId=${response.room.id}`);
       } else {
         alert(response.error || 'Failed to create room');
@@ -49,93 +45,92 @@ export default function Lobby() {
     });
   };
 
-  if (loading || !user) return <div className="min-h-screen bg-[#060709] flex items-center justify-center text-indigo-400 font-mono">Initializing Node Authentication...</div>;
+  if (loading || !user) {
+    return (
+      <div className="min-h-screen bg-[#060709] flex items-center justify-center text-indigo-400 font-mono text-sm">
+        <span className="flex items-center gap-3">
+          <span className="h-2 w-2 rounded-full bg-indigo-400 animate-pulse" />
+          Initializing Node Authentication...
+        </span>
+      </div>
+    );
+  }
+
+  const stats: StatItem[] = [
+    { label: 'Total Energy', value: 1247, suffix: ' GW', icon: 'zap', accent: 'indigo' },
+    { label: 'Active Rooms', value: rooms.length, icon: 'radio', accent: 'emerald' },
+    { label: 'Online Nodes', value: rooms.reduce((sum, r) => sum + (r.players?.length || 0), 0), icon: 'grid', accent: 'cyan' },
+    { label: 'Grid Status', value: connected ? 100 : 0, suffix: '%', icon: 'activity', accent: connected ? 'emerald' : 'amber' },
+  ];
 
   return (
-    <div className="min-h-screen bg-[#060709] text-zinc-100 p-8">
-      <header className="max-w-5xl mx-auto flex items-center justify-between border-b border-zinc-800/60 pb-6 mb-8">
-        <div className="flex items-center gap-4">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-tr from-indigo-500 to-cyan-400 font-black text-white shadow-lg shadow-indigo-500/20">
-            C
+    <div className="min-h-screen bg-[#060709] text-zinc-100">
+      {/* Ambient glow */}
+      <div className="fixed top-0 left-1/4 w-[500px] h-[500px] rounded-full bg-indigo-900/10 blur-[120px] pointer-events-none" />
+      <div className="fixed bottom-0 right-1/4 w-[500px] h-[500px] rounded-full bg-cyan-900/10 blur-[120px] pointer-events-none" />
+
+      {/* Header */}
+      <header className="sticky top-0 z-30 border-b border-zinc-900/60 bg-[#060709]/80 backdrop-blur-md px-4 sm:px-6 py-3">
+        <div className="max-w-6xl mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-indigo-500 to-cyan-400 font-black text-white text-sm shadow-lg shadow-indigo-500/20">
+              C
+            </div>
+            <div className="hidden sm:block">
+              <h1 className="text-sm font-bold tracking-tight text-white">Charge Circle</h1>
+            </div>
           </div>
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-white">Charge Circle Lobby</h1>
-            <p className="text-xs text-zinc-500 uppercase tracking-widest flex items-center gap-2">
-              Operator: <span className="text-emerald-400 font-bold">{user.nickname}</span>
-              <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] border ${connected ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-rose-500/10 text-rose-400 border-rose-500/20'}`}>
-                <span className={`h-1.5 w-1.5 rounded-full ${connected ? 'bg-emerald-400' : 'bg-rose-400'}`}></span>
-                {connected ? 'Socket Live' : 'Disconnected'}
-              </span>
-            </p>
+
+          <div className="flex items-center gap-4">
+            <div className="hidden sm:flex items-center gap-1.5 text-xs text-zinc-500">
+              <Radio size={12} className="text-indigo-400" />
+              Operator: <span className="text-emerald-400 font-medium">{user.nickname}</span>
+            </div>
+            <ConnectionBadge connected={connected} />
+            <button
+              onClick={() => { logout(); router.push('/login'); }}
+              className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-rose-400 bg-zinc-900/60 hover:bg-rose-500/10 border border-zinc-800 hover:border-rose-500/30 px-3 py-1.5 rounded-lg transition-all"
+            >
+              <LogOut size={12} /> <span className="hidden sm:inline">Disconnect</span>
+            </button>
           </div>
         </div>
-        <button 
-          onClick={() => { logout(); router.push('/login'); }}
-          className="flex items-center gap-2 text-sm text-zinc-400 hover:text-white bg-zinc-900/50 hover:bg-rose-500/20 hover:border-rose-500/50 border border-zinc-800 px-4 py-2 rounded-lg transition-all"
-        >
-          <LogOut size={16} /> Disconnect
-        </button>
       </header>
 
-      <main className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-8">
-        <div className="md:col-span-1">
-          <div className="bg-[#0d0e12] border border-zinc-800/40 rounded-2xl p-6 shadow-xl sticky top-8">
-            <h2 className="text-lg font-bold mb-4 flex items-center gap-2 text-indigo-400">
-              <Plus size={18} /> Initialize Room
-            </h2>
-            <form onSubmit={handleCreateRoom} className="flex flex-col gap-4">
-              <input 
-                type="text" 
-                value={newRoomName}
-                onChange={(e) => setNewRoomName(e.target.value)}
-                placeholder="Room Designation..."
-                className="w-full bg-[#181920] border border-zinc-800 rounded-lg px-4 py-2.5 text-white focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
-                required
-              />
-              <button 
-                type="submit" 
-                disabled={creating || !connected}
-                className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-cyan-500 hover:from-indigo-500 hover:to-cyan-400 text-white font-bold rounded-lg disabled:opacity-50 transition-all shadow-lg shadow-indigo-500/20"
-              >
-                {creating ? 'Creating...' : 'Create Room'}
-              </button>
-            </form>
-          </div>
+      {/* Main */}
+      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-24 flex flex-col gap-6">
+        {/* Stat strip */}
+        <StatStrip stats={stats} />
+
+        {/* Section header */}
+        <div className="flex items-center justify-between">
+          <h2 className="text-base font-bold text-zinc-300 flex items-center gap-2">
+            Active Grid Nodes
+            <span className="text-xs font-mono text-zinc-600 bg-zinc-900/60 px-2 py-0.5 rounded-full border border-zinc-800">
+              {rooms.length}
+            </span>
+          </h2>
         </div>
 
-        <div className="md:col-span-2 flex flex-col gap-4">
-          <h2 className="text-xl font-bold flex items-center gap-2 text-zinc-300">
-            <Users size={20} /> Active Grid Nodes
-          </h2>
-          
-          {isLoadingRooms ? (
-            <div className="bg-[#0d0e12]/50 border border-zinc-800/30 border-dashed rounded-2xl p-12 text-center text-zinc-500">
-              Loading active nodes...
-            </div>
-          ) : rooms.length === 0 ? (
-            <div className="bg-[#0d0e12]/50 border border-zinc-800/30 border-dashed rounded-2xl p-12 text-center text-zinc-500">
-              No active rooms available. Initialize a new room to start.
-            </div>
-          ) : (
-            <div className="grid gap-4">
-              {rooms.map(room => (
-                <div key={room.id} className="bg-[#0d0e12] border border-zinc-800/40 rounded-xl p-5 flex items-center justify-between hover:border-indigo-500/50 transition-all group shadow-md">
-                  <div>
-                    <h3 className="font-bold text-lg text-white group-hover:text-indigo-300 transition-colors">{room.name}</h3>
-                    <p className="text-xs text-zinc-500 mt-1">Owner: <span className="text-zinc-300">{room.owner?.nickname || 'Unknown'}</span> • Status: <span className="text-emerald-400">{room.status}</span></p>
-                  </div>
-                  <button 
-                    onClick={() => handleJoinRoom(room.id)}
-                    className="flex items-center gap-2 px-6 py-2.5 bg-zinc-800 hover:bg-emerald-600 text-white font-medium rounded-lg transition-colors shadow"
-                  >
-                    <Play size={16} /> Join Node
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        {/* Room grid */}
+        {isLoadingRooms ? (
+          <div className="text-center py-16 text-zinc-600 text-sm font-mono">Scanning for active nodes...</div>
+        ) : rooms.length === 0 ? (
+          <div className="text-center py-16 border border-dashed border-zinc-800/40 rounded-2xl bg-zinc-900/20">
+            <p className="text-zinc-500 text-sm mb-2">No active rooms available.</p>
+            <p className="text-zinc-600 text-xs">Initialize a new room to start playing.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {rooms.map((room, i) => (
+              <RoomCard key={room.id} room={room} onJoin={handleJoinRoom} index={i} />
+            ))}
+          </div>
+        )}
       </main>
+
+      {/* FAB */}
+      <CreateRoomModal onCreate={handleCreateRoom} />
     </div>
   );
 }
