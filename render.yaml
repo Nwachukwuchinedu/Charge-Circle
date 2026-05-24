@@ -24,6 +24,6 @@ services:
         - frontend/**
     envVars:
       - key: NEXT_PUBLIC_API_URL
-        value: https://charge-circle-backend.onrender.com/api
+        value: https://${charge-circle-backend.host}/api
       - key: NEXT_PUBLIC_SOCKET_URL
-        value: https://charge-circle-backend.onrender.com
+        value: https://${charge-circle-backend.host}
