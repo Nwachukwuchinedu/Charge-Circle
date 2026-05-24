@@ -52,16 +52,4 @@ export class ApiResponse {
   static unauthorized(res: Response, message = 'Unauthorized', error?: any): void {
     this.error(res, message, error, 401);
   }
-
-  static forbidden(res: Response, message = 'Forbidden', error?: any): void {
-    this.error(res, message, error, 403);
-  }
-
-  static notFound(res: Response, message = 'Resource not found', error?: any): void {
-    this.error(res, message, error, 404);
-  }
-
-  static internalError(res: Response, error: any, message = 'Internal Server Error'): void {
-    this.error(res, message, error, 500);
-  }
 }

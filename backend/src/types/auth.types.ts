@@ -7,3 +7,9 @@ export interface AuthResult {
     nickname: string;
   };
 }
+
+/** Shape of the JWT payload embedded in every token. */
+export interface TokenPayload {
+  userId: string;
+  nickname?: string;
+}

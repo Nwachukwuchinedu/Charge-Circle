@@ -1,24 +1,7 @@
 import { prisma } from '../utils/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
-import { ActiveUser, PlayerSummary, RoomCacheEntry } from '../types/room.types.js';
-import { Prisma } from '@prisma/client';
-
-type RoomWithDetails = Prisma.RoomGetPayload<{
-  include: {
-    gameStates: true;
-    owner: { select: { nickname: true } };
-    chatMessages: { include: { user: { select: { nickname: true } } }; take: number; orderBy: { createdAt: 'asc' } };
-  };
-}> & { players: PlayerSummary[] };
-
-type RoomListItem = Prisma.RoomGetPayload<{
-  include: { owner: { select: { nickname: true } } };
-}>;
-
-type CreatedRoom = Prisma.RoomGetPayload<{
-  include: { gameStates: true };
-}> & { players: PlayerSummary[] };
+import { ActiveUser, PlayerSummary, RoomCacheEntry, RoomWithDetails, RoomListItem, CreatedRoom } from '../types/room.types.js';
 
 /**
  * Manages room lifecycle: creation, joining, player tracking, and stale cleanup.
@@ -54,13 +37,6 @@ export class RoomService {
   static setRoomCache(roomId: string, entry: Partial<RoomCacheEntry>): void {
     const existing = this.roomCache.get(roomId) ?? { boardSize: 10, gameState: null };
     this.roomCache.set(roomId, { ...existing, ...entry });
-  }
-
-  /**
-   * Removes a room from the cache when the room is destroyed or finished.
-   */
-  static clearRoomCache(roomId: string): void {
-    this.roomCache.delete(roomId);
   }
 
   /**
@@ -152,7 +128,6 @@ export class RoomService {
     if (!room) throw new AppError('Room not found');
     if (room.status === 'finished') throw new AppError('Game already finished');
 
-    // Seed the cache
     const gs = room.gameStates[0];
     if (!this.roomCache.has(room.id) && gs) {
       this.roomCache.set(room.id, {

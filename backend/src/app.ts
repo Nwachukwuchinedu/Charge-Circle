@@ -6,7 +6,7 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 
 import { setupRedis } from './utils/redis.js';
-import { startDbKeepalive } from './utils/prisma.js';
+import { startDbKeepalive, stopDbKeepalive } from './utils/prisma.js';
 import { BroadcastService } from './services/broadcast.service.js';
 import { RoomService } from './services/room.service.js';
 import { logger } from './utils/logger.js';
@@ -69,3 +69,18 @@ const PORT = process.env.PORT || 4000;
 httpServer.listen(PORT, () => {
   logger.info(`Charge Circle backend running on port ${PORT}`);
 });
+
+// ── Graceful shutdown ───────────────────────────────────────────────────────
+const shutdown = (signal: string) => {
+  logger.info(`[Shutdown] Received ${signal}. Closing servers...`);
+  io.close(() => {
+    httpServer.close(() => {
+      stopDbKeepalive();
+      logger.info('[Shutdown] All connections closed. Goodbye.');
+      process.exit(0);
+    });
+  });
+};
+
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));

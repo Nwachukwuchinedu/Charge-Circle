@@ -4,6 +4,7 @@ import { ChatService } from '../services/chat.service.js';
 import { throttleSocket } from '../utils/throttle.js';
 import { SocketResponse } from '../utils/socketResponse.js';
 import { logger } from '../utils/logger.js';
+import { SendChatDto } from '../dto/chat.dto.js';
 
 /**
  * Registers chat-related Socket.io event handlers on the given socket.
@@ -18,25 +19,27 @@ import { logger } from '../utils/logger.js';
  * @param socket - The authenticated client socket
  */
 export const setupChatHandlers = (io: Server, socket: AuthSocket): void => {
-  socket.on('send_chat', async (data: { roomId: string; message: string }) => {
+  socket.on('send_chat', async (data: unknown) => {
     try {
       if (!throttleSocket(`chat_${socket.userId}`, 500)) return;
 
+      const parsed = SendChatDto.parse(data);
+
       const optimisticMsg = {
         id: Date.now(),
-        roomId: data.roomId,
+        roomId: parsed.roomId,
         userId: socket.userId,
-        message: data.message,
+        message: parsed.message,
         createdAt: new Date().toISOString(),
         user: { nickname: socket.nickname || 'Player' },
       };
 
-      SocketResponse.broadcast(io.to(data.roomId), data.roomId, 'chat_message', optimisticMsg);
+      SocketResponse.broadcast(io.to(parsed.roomId), parsed.roomId, 'chat_message', optimisticMsg);
 
-      ChatService.saveMessage(data.roomId, socket.userId!, data.message).catch((err) =>
+      ChatService.saveMessage(parsed.roomId, socket.userId!, parsed.message).catch((err) =>
         logger.error('[Chat] Failed to persist message:', {
           error: err.message,
-          roomId: data.roomId,
+          roomId: parsed.roomId,
           userId: socket.userId,
         }),
       );

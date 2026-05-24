@@ -1,5 +1,5 @@
-import { prisma } from '../utils/prisma.js';
 import { ChatMessage } from '@prisma/client';
+import { prisma } from '../utils/prisma.js';
 
 /**
  * Persists chat messages to the database.

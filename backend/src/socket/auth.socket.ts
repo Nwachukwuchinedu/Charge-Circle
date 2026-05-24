@@ -1,5 +1,6 @@
 import { Socket } from 'socket.io';
-import { verifyToken, TokenPayload } from '../utils/jwt.js';
+import { verifyToken } from '../utils/jwt.js';
+import { TokenPayload } from '../types/auth.types.js';
 
 /**
  * Authenticated Socket.io socket that carries the user's identity

@@ -40,7 +40,7 @@ export class BroadcastService {
 
   /**
    * Flushes all queued deltas by broadcasting each room's latest delta.
-   * Called automatically every 100ms by the interval timer.
+   * Called automatically every 50ms by the interval timer.
    */
   private static flush(): void {
     if (this.pendingDeltas.size === 0) return;

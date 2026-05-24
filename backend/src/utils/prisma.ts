@@ -1,8 +1,3 @@
-import dotenv from 'dotenv';
-import path from 'path';
-
-dotenv.config({ path: path.resolve(process.cwd(), '.env') });
-
 import { PrismaClient } from '@prisma/client';
 import { PrismaNeon } from '@prisma/adapter-neon';
 import { neonConfig } from '@neondatabase/serverless';
@@ -38,10 +33,9 @@ export const prisma = new PrismaClient({ adapter });
 // ── Keepalive ping ─────────────────────────────────────────────────────────
 // Neon's serverless Postgres spins down after a few seconds of inactivity.
 // This periodic ping keeps the connection warm so that in-game moves don't
-// incur a 500ms+ cold-start penalty. The query itself is lightweight
-// (round-trip time only, ~1-5ms on a warm connection).
+// incur a 500ms+ cold-start penalty.
 
-const KEEPALIVE_INTERVAL = 15_000; // 15 seconds
+const KEEPALIVE_INTERVAL = 15_000;
 
 let keepaliveHandle: ReturnType<typeof setInterval> | null = null;
 

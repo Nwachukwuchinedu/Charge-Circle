@@ -1,12 +1,7 @@
 import jwt from 'jsonwebtoken';
+import { TokenPayload } from '../types/auth.types.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'supersecret_charge_circle_key_2026_dev';
-
-/** Shape of the JWT payload embedded in every token. */
-export interface TokenPayload {
-  userId: string;
-  nickname?: string;
-}
 
 /**
  * Creates a signed JWT for the given user.
