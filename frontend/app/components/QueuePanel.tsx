@@ -24,7 +24,7 @@ export default function QueuePanel({ queue, myUserId, myNickname }: QueuePanelPr
   const myData = myIndex !== -1 ? queue[myIndex] : null;
 
   return (
-    <div className="flex flex-col gap-6 w-full lg:w-96">
+    <div className="flex flex-col gap-6 w-full">
       <Card variant="glass" className="relative overflow-hidden p-5">
         <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-indigo-500/5 blur-xl" />
         <div className="absolute -left-8 -bottom-8 h-24 w-24 rounded-full bg-cyan-500/5 blur-xl" />
@@ -35,7 +35,7 @@ export default function QueuePanel({ queue, myUserId, myNickname }: QueuePanelPr
           <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between">
               <span className="text-zinc-400 text-sm">Player</span>
-              <span className="text-zinc-100 font-medium bg-zinc-800/40 px-2.5 py-0.5 rounded text-xs border border-zinc-700/30">
+              <span className="text-zinc-100 font-medium bg-zinc-800/40 px-2.5 py-0.5 rounded text-xs border border-zinc-700/30 max-w-[140px] truncate block">
                 {myNickname || 'You'}
               </span>
             </div>
