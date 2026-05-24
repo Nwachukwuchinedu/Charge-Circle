@@ -3,7 +3,7 @@ import { AuthSocket } from './auth.socket.js';
 import { RoomService } from '../services/room.service.js';
 import { SocketResponse } from '../utils/socketResponse.js';
 import { AppError } from '../utils/errors.js';
-import { CreateRoomDto, JoinRoomDto } from '../dto/room.dto.js';
+import { CreateRoomDto, JoinRoomDto, UpdateRoomDto, DeleteRoomDto } from '../dto/room.dto.js';
 
 /**
  * Registers room-management Socket.io event handlers on the given socket.
@@ -87,6 +87,43 @@ export const setupRoomHandlers = (io: Server, socket: AuthSocket): void => {
       if (callback) {
         callback({ success: false, error: error.message });
       }
+    }
+  });
+
+  /**
+   * Updates room metadata (name, maxPlayers).
+   * Only the room owner may edit the room.
+   */
+  socket.on('update_room', async (data: unknown, callback) => {
+    try {
+      const parsed = UpdateRoomDto.parse(data);
+      const room = await RoomService.updateRoom(parsed.roomId, socket.userId!, {
+        name: parsed.name,
+        maxPlayers: parsed.maxPlayers,
+      });
+      SocketResponse.broadcast(io.to(parsed.roomId), parsed.roomId, 'room_state_update', room);
+      SocketResponse.broadcast(io, null, 'rooms_updated', null);
+      SocketResponse.acknowledge(socket, callback, { success: true, room });
+    } catch (error: any) {
+      SocketResponse.acknowledge(socket, callback, { success: false, error: error.message, errorObj: error });
+    }
+  });
+
+  /**
+   * Deletes a room and all associated data.
+   * Only the room owner may delete the room.
+   * All connected players receive a `room_deleted` event.
+   */
+  socket.on('delete_room', async (data: unknown, callback) => {
+    try {
+      const parsed = DeleteRoomDto.parse(data);
+      await RoomService.deleteRoom(parsed.roomId, socket.userId!);
+      // Notify all players currently in the room that it has been deleted
+      SocketResponse.broadcast(io.to(parsed.roomId), parsed.roomId, 'room_deleted', { roomId: parsed.roomId });
+      SocketResponse.broadcast(io, null, 'rooms_updated', null);
+      SocketResponse.acknowledge(socket, callback, { success: true });
+    } catch (error: any) {
+      SocketResponse.acknowledge(socket, callback, { success: false, error: error.message, errorObj: error });
     }
   });
 };

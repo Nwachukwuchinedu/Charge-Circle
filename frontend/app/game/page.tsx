@@ -82,6 +82,13 @@ function GameContent() {
         setErrorText(data.message);
         setTimeout(() => setErrorText(null), 4000);
       });
+
+      socket.on('room_deleted', (data: { roomId: string }) => {
+        if (data.roomId === roomId) {
+          alert('This room has been deleted by the owner.');
+          router.push('/lobby');
+        }
+      });
     }
 
     return () => {
@@ -90,6 +97,7 @@ function GameContent() {
         socket.off('game_state_delta');
         socket.off('game_error');
         socket.off('chat_message');
+        socket.off('room_deleted');
       }
     };
   }, [socket, connected, roomId]);

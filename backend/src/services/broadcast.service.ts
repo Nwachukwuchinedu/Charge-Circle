@@ -52,6 +52,14 @@ export class BroadcastService {
   }
 
   /**
+   * Removes any pending deltas for a room that is being deleted.
+   * Prevents stale broadcasts after the room is gone.
+   */
+  static clearPendingDeltas(roomId: string): void {
+    this.pendingDeltas.delete(roomId);
+  }
+
+  /**
    * Flushes all queued deltas by broadcasting each room's latest delta.
    * Called automatically every 50ms by the interval timer.
    */

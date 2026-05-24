@@ -61,7 +61,7 @@ model GameState {
   score     Int     @default(0)
   turnQueue Json?   @map("turn_queue")
 
-  room Room @relation(fields: [roomId], references: [id])
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
 
   @@map("game_state")
 }
@@ -73,7 +73,7 @@ model ChatMessage {
   message   String
   createdAt DateTime @default(now()) @map("created_at")
 
-  room Room @relation(fields: [roomId], references: [id])
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id])
 
   @@map("chat_messages")
@@ -90,7 +90,7 @@ model MoveHistory {
   scored    Boolean  @default(false)
   createdAt DateTime @default(now()) @map("created_at")
 
-  room Room @relation(fields: [roomId], references: [id])
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
   user User @relation(fields: [userId], references: [id])
 
   @@map("move_history")

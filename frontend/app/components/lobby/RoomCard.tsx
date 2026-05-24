@@ -1,7 +1,7 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Play, Users, Lock, Unlock } from 'lucide-react';
+import { Play, Users, Lock, Unlock, Pencil, Trash2 } from 'lucide-react';
 import type { Room } from '../../types';
 import Badge from '../ui/Badge';
 import Button from '../ui/Button';
@@ -11,11 +11,17 @@ export default function RoomCard({
   onJoin,
   index,
   isJoining = false,
+  userId,
+  onEdit,
+  onDelete,
 }: {
   room: Room;
   onJoin: (id: string) => void;
   index: number;
   isJoining?: boolean;
+  userId?: string;
+  onEdit?: (room: Room) => void;
+  onDelete?: (roomId: string) => void;
 }) {
   const playerCount = room.players?.length || 0;
   const maxPlayers = (room as any).maxPlayers;
@@ -36,11 +42,31 @@ export default function RoomCard({
             by <span className="text-zinc-400">{room.owner?.nickname || 'Unknown'}</span>
           </p>
         </div>
-        <Badge
-          variant={room.status === 'playing' ? 'success' : room.status === 'waiting' ? 'warning' : 'neutral'}
-        >
-          {room.status}
-        </Badge>
+        <div className="flex items-center gap-1.5">
+          {userId && room.ownerId === userId && onEdit && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onEdit(room); }}
+              className="p-1.5 rounded-lg text-zinc-500 hover:text-indigo-400 hover:bg-indigo-500/10 transition-colors cursor-pointer"
+              title="Edit room"
+            >
+              <Pencil size={13} />
+            </button>
+          )}
+          {userId && room.ownerId === userId && onDelete && (
+            <button
+              onClick={(e) => { e.stopPropagation(); if (window.confirm('Delete this room? This cannot be undone.')) onDelete(room.id); }}
+              className="p-1.5 rounded-lg text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors cursor-pointer"
+              title="Delete room"
+            >
+              <Trash2 size={13} />
+            </button>
+          )}
+          <Badge
+            variant={room.status === 'playing' ? 'success' : room.status === 'waiting' ? 'warning' : 'neutral'}
+          >
+            {room.status}
+          </Badge>
+        </div>
       </div>
 
       <div className="flex items-center gap-4 text-xs text-zinc-500 mb-4">

@@ -11,7 +11,9 @@ import Logo from '../components/ui/Logo';
 import StatStrip from '../components/lobby/StatStrip';
 import type { StatItem } from '../components/lobby/StatStrip';
 import RoomCard from '../components/lobby/RoomCard';
+import EditRoomModal from '../components/lobby/EditRoomModal';
 import CreateRoomModal from '../components/lobby/CreateRoomModal';
+import type { Room } from '../types';
 import { LogOut, Radio } from 'lucide-react';
 
 export default function Lobby() {
@@ -21,6 +23,7 @@ export default function Lobby() {
 
   const { data: rooms = [], isLoading: isLoadingRooms } = useRoomList(socket, connected);
   const [joiningRoomId, setJoiningRoomId] = useState<string | null>(null);
+  const [editingRoom, setEditingRoom] = useState<Room | null>(null);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -46,6 +49,36 @@ export default function Lobby() {
       } else {
         alert(response.error || 'Failed to join room');
         setJoiningRoomId(null);
+      }
+    });
+  };
+
+  const handleEditRoom = (
+    roomId: string,
+    name: string,
+    maxPlayers: number | null,
+    callback?: (success: boolean) => void,
+  ) => {
+    if (!socket) {
+      if (callback) callback(false);
+      return;
+    }
+    socket.emit('update_room', { roomId, name, maxPlayers }, (response: any) => {
+      if (response.success) {
+        setEditingRoom(null);
+        if (callback) callback(true);
+      } else {
+        alert(response.error || 'Failed to update room');
+        if (callback) callback(false);
+      }
+    });
+  };
+
+  const handleDeleteRoom = (roomId: string) => {
+    if (!socket) return;
+    socket.emit('delete_room', { roomId }, (response: any) => {
+      if (!response.success) {
+        alert(response.error || 'Failed to delete room');
       }
     });
   };
@@ -119,6 +152,9 @@ export default function Lobby() {
                 onJoin={handleJoinRoom}
                 index={i}
                 isJoining={joiningRoomId === room.id}
+                userId={user.id}
+                onEdit={setEditingRoom}
+                onDelete={handleDeleteRoom}
               />
             ))}
           </div>
@@ -126,6 +162,12 @@ export default function Lobby() {
       </main>
 
       <CreateRoomModal onCreate={handleCreateRoom} />
+      <EditRoomModal
+        room={editingRoom}
+        isOpen={!!editingRoom}
+        onClose={() => setEditingRoom(null)}
+        onSave={handleEditRoom}
+      />
     </div>
   );
 }

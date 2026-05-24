@@ -334,6 +334,57 @@ export class RoomService {
   }
 
   /**
+   * Updates room metadata (name, maxPlayers).
+   * Only the room owner may edit the room.
+   *
+   * @returns The updated room details
+   * @throws AppError if the room is not found or the requester is not the owner
+   */
+  static async updateRoom(
+    roomId: string,
+    requestingUserId: string,
+    data: { name?: string; maxPlayers?: number | null },
+  ): Promise<RoomWithDetails | null> {
+    const room = await prisma.room.findUnique({ where: { id: roomId } });
+    if (!room) throw new AppError('Room not found');
+    if (room.ownerId !== requestingUserId) throw new AppError('Only the room owner can edit this room');
+
+    const updateData: Record<string, any> = {};
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.maxPlayers !== undefined) updateData.maxPlayers = data.maxPlayers;
+
+    if (Object.keys(updateData).length > 0) {
+      await prisma.room.update({ where: { id: roomId }, data: updateData });
+      // Invalidate cache so next read hits DB
+      this.roomCache.delete(roomId);
+    }
+
+    return this.getRoomDetails(roomId);
+  }
+
+  /**
+   * Deletes a room and all associated records (game state, chat messages, move history).
+   * Only the room owner may delete the room.
+   *
+   * Cleans up in-memory caches (roomCache, activeUsersMap) and clears pending
+   * broadcast deltas so stale state is never emitted.
+   *
+   * @throws AppError if the room is not found or the requester is not the owner
+   */
+  static async deleteRoom(roomId: string, requestingUserId: string): Promise<void> {
+    const room = await prisma.room.findUnique({ where: { id: roomId } });
+    if (!room) throw new AppError('Room not found');
+    if (room.ownerId !== requestingUserId) throw new AppError('Only the room owner can delete this room');
+
+    await prisma.room.delete({ where: { id: roomId } });
+
+    // Clean up in-memory state
+    this.roomCache.delete(roomId);
+    this.activeUsersMap.delete(roomId);
+    BroadcastService.clearPendingDeltas(roomId);
+  }
+
+  /**
    * Marks a user as disconnected in the active-users map.
    * The user will be removed from the room after the 30-second grace period
    * by the periodic cleanup sweep.
