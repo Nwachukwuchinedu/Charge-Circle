@@ -17,8 +17,8 @@ export interface GameStateDelta {
  * Throttled broadcast service that batches state updates per room.
  *
  * Instead of emitting a Socket.io event on every single move, deltas are
- * queued in a Map and flushed at a fixed 100ms interval. This reduces
- * broadcast overhead from O(moves/second) to a constant 10 broadcasts/second,
+ * queued in a Map and flushed at a fixed 50ms interval. This reduces
+ * broadcast overhead from O(moves/second) to a constant 20 broadcasts/second,
  * which is critical when scaling to thousands of concurrent players.
  */
 export class BroadcastService {
@@ -33,7 +33,7 @@ export class BroadcastService {
   static initialize(ioInstance: Server): void {
     this.io = ioInstance;
     if (!this.interval) {
-      this.interval = setInterval(() => this.flush(), 100);
+      this.interval = setInterval(() => this.flush(), 50);
     }
   }
 

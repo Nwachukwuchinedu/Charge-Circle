@@ -1,6 +1,7 @@
 import { prisma } from '../utils/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
+import { RoomService } from './room.service.js';
 
 /** Result returned after a successful piece move. */
 export interface MoveResult {
@@ -19,17 +20,22 @@ export interface MoveResult {
 /**
  * Core game logic for moving the shared Energy Orb and managing turn rotation.
  *
- * All state mutations happen inside a Prisma transaction to guarantee atomicity.
- * Move history is logged asynchronously (fire-and-forget) to avoid blocking the response.
+ * State is read from an in-memory cache (RoomService.roomCache) to eliminate
+ * DB round trips on every move. On a cache miss the data is loaded from the
+ * database and the cache is seeded.
+ *
+ * The actual state mutation is a single Prisma update (no transaction overhead).
+ * Move history is persisted asynchronously.
  */
 export class GameService {
   /**
    * Validates and executes a piece move for the given user in the given room.
    *
-   * 1. Checks the user is at the front of the turn queue.
-   * 2. Validates the destination is within board bounds and adjacent to the current position.
-   * 3. If the destination matches the target, increments the score and spawns a new target.
-   * 4. Rotates the queue (active player moves to the back).
+   * 1. Reads state from the in-memory cache (falls back to DB on miss).
+   * 2. Validates turn ownership, board bounds, and adjacency.
+   * 3. Computes the new state (score, target, queue rotation).
+   * 4. Writes the new state with a single atomic Prisma `update`.
+   * 5. Updates the in-memory cache.
    *
    * @param roomId - The room where the move occurs
    * @param userId - The player attempting the move
@@ -39,82 +45,121 @@ export class GameService {
    * @throws AppError if validation fails (not your turn, out of bounds, etc.)
    */
   static async movePiece(roomId: string, userId: string, toX: number, toY: number): Promise<MoveResult> {
-    const room = await prisma.room.findUnique({
-      where: { id: roomId },
-      select: { boardSize: true },
-    });
-    if (!room) throw new AppError('Room not found');
+    const start = Date.now();
 
-    const boardSize = room.boardSize;
+    // ── Load state (cache preferred; DB fallback) ──────────────────────
+    const cached = RoomService.getRoomCache(roomId);
+    let boardSize = cached?.boardSize;
+    let gs = cached?.gameState;
 
-    const result = await prisma.$transaction(
-      async (tx) => {
-        const gameState = await tx.gameState.findUnique({ where: { roomId } });
-        if (!gameState) throw new AppError('Game state not found');
+    if (!boardSize || !gs) {
+      const room = await prisma.room.findUnique({
+        where: { id: roomId },
+        select: { boardSize: true },
+      });
+      if (!room) throw new AppError('Room not found');
+      boardSize = room.boardSize;
 
-        const queue = (gameState.turnQueue as string[]) ?? [];
-        if (queue[0] !== userId) throw new AppError('Not your turn');
+      const dbState = await prisma.gameState.findUnique({ where: { roomId } });
+      if (!dbState) throw new AppError('Game state not found');
 
-        if (toX < 0 || toX >= boardSize || toY < 0 || toY >= boardSize) {
-          throw new AppError('Move out of board bounds');
-        }
+      gs = {
+        pieceX: dbState.pieceX,
+        pieceY: dbState.pieceY,
+        targetX: dbState.targetX,
+        targetY: dbState.targetY,
+        score: dbState.score,
+        turnQueue: (dbState.turnQueue as string[]) ?? [],
+      };
 
-        const dx = Math.abs(toX - gameState.pieceX);
-        const dy = Math.abs(toY - gameState.pieceY);
-        if (dx > 1 || dy > 1) {
-          throw new AppError('Invalid move — you can only move 1 tile');
-        }
+      RoomService.setRoomCache(roomId, { boardSize, gameState: gs });
+    }
 
-        const scored = toX === gameState.targetX && toY === gameState.targetY;
-        const scoreIncr = scored ? 1 : 0;
+    // ── Validate ───────────────────────────────────────────────────────
+    const queue = gs.turnQueue;
+    if (queue[0] !== userId) throw new AppError('Not your turn');
 
-        let newTargetX = gameState.targetX;
-        let newTargetY = gameState.targetY;
+    if (toX < 0 || toX >= boardSize || toY < 0 || toY >= boardSize) {
+      throw new AppError('Move out of board bounds');
+    }
 
-        if (scored) {
-          do {
-            newTargetX = Math.floor(Math.random() * boardSize);
-            newTargetY = Math.floor(Math.random() * boardSize);
-          } while (newTargetX === toX && newTargetY === toY);
-        }
+    const dx = Math.abs(toX - gs.pieceX);
+    const dy = Math.abs(toY - gs.pieceY);
+    if (dx > 1 || dy > 1) {
+      throw new AppError('Invalid move — you can only move 1 tile');
+    }
 
-        const nextQueue = queue.length > 1 ? [...queue.slice(1), queue[0]] : queue;
+    // ── Compute new state ──────────────────────────────────────────────
+    const scored = toX === gs.targetX && toY === gs.targetY;
+    const scoreIncr = scored ? 1 : 0;
 
-        const updatedState = await tx.gameState.update({
-          where: { roomId },
-          data: {
-            pieceX: toX,
-            pieceY: toY,
-            targetX: newTargetX,
-            targetY: newTargetY,
-            score: gameState.score + scoreIncr,
-            turnQueue: nextQueue,
-          },
-        });
+    let newTargetX = gs.targetX;
+    let newTargetY = gs.targetY;
 
-        return {
-          state: updatedState,
-          from: { x: gameState.pieceX, y: gameState.pieceY },
-          scored,
-        };
+    if (scored) {
+      do {
+        newTargetX = Math.floor(Math.random() * boardSize);
+        newTargetY = Math.floor(Math.random() * boardSize);
+      } while (newTargetX === toX && newTargetY === toY);
+    }
+
+    const nextQueue = queue.length > 1 ? [...queue.slice(1), queue[0]] : queue;
+    const newScore = gs.score + scoreIncr;
+
+    // ── Single atomic write ─────────────────────────────────────────────
+    const updatedState = await prisma.gameState.update({
+      where: { roomId },
+      data: {
+        pieceX: toX,
+        pieceY: toY,
+        targetX: newTargetX,
+        targetY: newTargetY,
+        score: newScore,
+        turnQueue: nextQueue,
       },
-      { maxWait: 15000, timeout: 30000 },
-    );
+    });
+
+    // ── Update cache ───────────────────────────────────────────────────
+    RoomService.setRoomCache(roomId, {
+      gameState: {
+        pieceX: updatedState.pieceX,
+        pieceY: updatedState.pieceY,
+        targetX: updatedState.targetX,
+        targetY: updatedState.targetY,
+        score: updatedState.score,
+        turnQueue: (updatedState.turnQueue as string[]) ?? [],
+      },
+    });
+
+    // ── Fire-and-forget history ────────────────────────────────────────
+    const from = { x: gs.pieceX, y: gs.pieceY };
 
     prisma.moveHistory
       .create({
-        data: {
-          roomId,
-          userId,
-          toX,
-          toY,
-          fromX: result.from.x,
-          fromY: result.from.y,
-          scored: result.scored,
-        },
+        data: { roomId, userId, toX, toY, fromX: from.x, fromY: from.y, scored },
       })
       .catch((err) => logger.error('[MoveHistory] Failed to log move:', { error: err.message }));
 
-    return result;
+    const elapsed = Date.now() - start;
+    if (elapsed > 100) {
+      logger.warn('[MovePiece] Slow move detected', {
+        roomId,
+        userId,
+        elapsedMs: elapsed,
+      });
+    }
+
+    return {
+      state: {
+        pieceX: updatedState.pieceX,
+        pieceY: updatedState.pieceY,
+        targetX: updatedState.targetX,
+        targetY: updatedState.targetY,
+        score: updatedState.score,
+        turnQueue: updatedState.turnQueue,
+      },
+      from,
+      scored,
+    };
   }
 }

@@ -6,6 +6,7 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 
 import { setupRedis } from './utils/redis.js';
+import { startDbKeepalive } from './utils/prisma.js';
 import { BroadcastService } from './services/broadcast.service.js';
 import { RoomService } from './services/room.service.js';
 import { logger } from './utils/logger.js';
@@ -36,6 +37,7 @@ const io = new Server(httpServer, {
 app.use('/api/auth', authRoutes);
 
 setupRedis(io);
+startDbKeepalive();
 BroadcastService.initialize(io);
 RoomService.startCleanupSweep();
 

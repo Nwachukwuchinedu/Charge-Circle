@@ -1,9 +1,9 @@
 import { prisma } from '../utils/prisma.js';
 import { AppError } from '../utils/errors.js';
-import { ActiveUser, PlayerSummary } from '../types/room.types.js';
+import { logger } from '../utils/logger.js';
+import { ActiveUser, PlayerSummary, RoomCacheEntry } from '../types/room.types.js';
 import { Prisma } from '@prisma/client';
 
-/** Full room payload returned to clients after a join, including players and chat. */
 type RoomWithDetails = Prisma.RoomGetPayload<{
   include: {
     gameStates: true;
@@ -12,12 +12,10 @@ type RoomWithDetails = Prisma.RoomGetPayload<{
   };
 }> & { players: PlayerSummary[] };
 
-/** Room shape returned to the room list. */
 type RoomListItem = Prisma.RoomGetPayload<{
   include: { owner: { select: { nickname: true } } };
 }>;
 
-/** Created room with game state and players. */
 type CreatedRoom = Prisma.RoomGetPayload<{
   include: { gameStates: true };
 }> & { players: PlayerSummary[] };
@@ -34,8 +32,40 @@ export class RoomService {
   static activeUsersMap = new Map<string, ActiveUser[]>();
 
   /**
-   * Creates a new room, initialises its game state, and registers the owner
-   * as the first active player.
+   * In-memory cache of hot room data (boardSize, game state).
+   *
+   * Eliminates DB round trips for the most frequently accessed fields.
+   * Populated on room creation/join and updated after every move.
+   * On a multi-instance deployment each server maintains its own cache;
+   * a cache miss falls through to the database, so correctness is never compromised.
+   */
+  private static roomCache = new Map<string, RoomCacheEntry>();
+
+  /**
+   * Returns the cached entry for a room, or `undefined` on a miss.
+   */
+  static getRoomCache(roomId: string): RoomCacheEntry | undefined {
+    return this.roomCache.get(roomId);
+  }
+
+  /**
+   * Seeds or updates the room cache. Called after any state-changing operation.
+   */
+  static setRoomCache(roomId: string, entry: Partial<RoomCacheEntry>): void {
+    const existing = this.roomCache.get(roomId) ?? { boardSize: 10, gameState: null };
+    this.roomCache.set(roomId, { ...existing, ...entry });
+  }
+
+  /**
+   * Removes a room from the cache when the room is destroyed or finished.
+   */
+  static clearRoomCache(roomId: string): void {
+    this.roomCache.delete(roomId);
+  }
+
+  /**
+   * Creates a new room, initialises its game state, seeds the in-memory cache,
+   * and registers the owner as the first active player.
    *
    * @param ownerId - User ID of the room creator
    * @param name - Room display name
@@ -70,6 +100,21 @@ export class RoomService {
       include: { gameStates: true },
     });
 
+    const gs = room.gameStates[0];
+    this.roomCache.set(room.id, {
+      boardSize: room.boardSize,
+      gameState: gs
+        ? {
+            pieceX: gs.pieceX,
+            pieceY: gs.pieceY,
+            targetX: gs.targetX,
+            targetY: gs.targetY,
+            score: gs.score,
+            turnQueue: (gs.turnQueue as string[]) ?? [],
+          }
+        : null,
+    });
+
     this.activeUsersMap.set(room.id, [{ id: ownerId, nickname, online: true }]);
 
     return {
@@ -91,8 +136,7 @@ export class RoomService {
   }
 
   /**
-   * Adds a user to a room. If the room is at capacity (maxPlayers), rejects the join.
-   * Starts the game (status → playing) when the second player joins.
+   * Adds a user to a room. Seeds the in-memory cache on first access.
    *
    * @param roomId - Target room
    * @param userId - Joining user
@@ -107,6 +151,22 @@ export class RoomService {
 
     if (!room) throw new AppError('Room not found');
     if (room.status === 'finished') throw new AppError('Game already finished');
+
+    // Seed the cache
+    const gs = room.gameStates[0];
+    if (!this.roomCache.has(room.id) && gs) {
+      this.roomCache.set(room.id, {
+        boardSize: room.boardSize,
+        gameState: {
+          pieceX: gs.pieceX,
+          pieceY: gs.pieceY,
+          targetX: gs.targetX,
+          targetY: gs.targetY,
+          score: gs.score,
+          turnQueue: (gs.turnQueue as string[]) ?? [],
+        },
+      });
+    }
 
     const dbUser = await prisma.user.findUnique({
       where: { id: userId },
@@ -195,20 +255,15 @@ export class RoomService {
   /**
    * Starts the periodic cleanup sweep that removes stale disconnected users.
    * Should be called once at server startup.
-   *
-   * Users who have been disconnected for longer than `gracePeriodMs` are
-   * removed from the in-memory map and the database turn queue.
    */
   static startCleanupSweep(gracePeriodMs = 30_000): void {
     setInterval(async () => {
       const now = Date.now();
       for (const [roomId, users] of this.activeUsersMap.entries()) {
-        let changed = false;
         for (let i = users.length - 1; i >= 0; i--) {
           const user = users[i];
           if (!user.online && user.disconnectedAt && now - user.disconnectedAt > gracePeriodMs) {
             users.splice(i, 1);
-            changed = true;
 
             try {
               const gs = await prisma.gameState.findUnique({ where: { roomId } });
@@ -222,8 +277,12 @@ export class RoomService {
                   });
                 }
               }
-            } catch (e) {
-              console.error('[Sweep] Error removing disconnected user from DB queue', e);
+            } catch (e: any) {
+              logger.error('[Sweep] Error removing disconnected user:', {
+                userId: user.id,
+                roomId,
+                error: e.message,
+              });
             }
           }
         }

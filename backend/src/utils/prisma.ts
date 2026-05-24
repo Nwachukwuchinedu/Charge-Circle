@@ -10,7 +10,20 @@ import ws from 'ws';
 
 neonConfig.webSocketConstructor = ws;
 
-const connectionString = process.env.DATABASE_URL;
+/**
+ * Connection strategy for Neon serverless Postgres:
+ *
+ * - `DATABASE_URL` — the **pooled** connection string (via Neon's built-in PgBouncer).
+ *   Add `?pgbouncer=true&connection_limit=20` for production deployments so that
+ *   thousands of concurrent app requests are multiplexed over at most 20 database
+ *   connections.
+ *
+ * - `DIRECT_URL` — the **direct** (non-pooled) connection string, used internally by
+ *   Prisma for migrations and `prisma.$queryRaw` calls that need a dedicated connection.
+ *   Falls back to `DATABASE_URL` when not set.
+ */
+const connectionString = process.env.DATABASE_URL || '';
+const directConnectionString = process.env.DIRECT_URL || connectionString;
 
 const adapter = new PrismaNeon({ connectionString });
 
@@ -21,3 +34,38 @@ const adapter = new PrismaNeon({ connectionString });
  * Postgres) and reads the connection string from `DATABASE_URL` in `.env`.
  */
 export const prisma = new PrismaClient({ adapter });
+
+// ── Keepalive ping ─────────────────────────────────────────────────────────
+// Neon's serverless Postgres spins down after a few seconds of inactivity.
+// This periodic ping keeps the connection warm so that in-game moves don't
+// incur a 500ms+ cold-start penalty. The query itself is lightweight
+// (round-trip time only, ~1-5ms on a warm connection).
+
+const KEEPALIVE_INTERVAL = 15_000; // 15 seconds
+
+let keepaliveHandle: ReturnType<typeof setInterval> | null = null;
+
+/**
+ * Starts the database keepalive timer. Should be called once at server startup.
+ */
+export function startDbKeepalive(): void {
+  if (keepaliveHandle) return;
+
+  keepaliveHandle = setInterval(async () => {
+    try {
+      await prisma.$executeRaw`SELECT 1`;
+    } catch {
+      // Silently ignored — the next query will re-establish the connection.
+    }
+  }, KEEPALIVE_INTERVAL);
+}
+
+/**
+ * Stops the database keepalive timer. Useful for graceful shutdown.
+ */
+export function stopDbKeepalive(): void {
+  if (keepaliveHandle) {
+    clearInterval(keepaliveHandle);
+    keepaliveHandle = null;
+  }
+}

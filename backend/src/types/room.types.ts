@@ -1,7 +1,4 @@
-/**
- * Represents a user currently active in a room's in-memory state.
- * Tracks online status and supports lazy cleanup of stale connections.
- */
+/** A player currently active in a room (in-memory tracking). */
 export interface ActiveUser {
   id: string;
   nickname: string;
@@ -9,12 +6,22 @@ export interface ActiveUser {
   disconnectedAt?: number;
 }
 
-/**
- * Player summary returned to clients in room payloads.
- * Omits sensitive fields like email or password hash.
- */
+/** Public player summary sent to clients in room payloads. */
 export interface PlayerSummary {
   id: string;
   nickname: string;
   online: boolean;
+}
+
+/** In-memory cache entry for a room's constant data and hot game state. */
+export interface RoomCacheEntry {
+  boardSize: number;
+  gameState: {
+    pieceX: number;
+    pieceY: number;
+    targetX: number;
+    targetY: number;
+    score: number;
+    turnQueue: string[];
+  } | null;
 }
