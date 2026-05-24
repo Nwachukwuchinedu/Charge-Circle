@@ -24,7 +24,7 @@ export default function Signup() {
     setLoading(true);
     try {
       const response = await api.post('/auth/signup', { nickname, email, password });
-      login(response.data.token, response.data.user);
+      login(response.data.accessToken, response.data.refreshToken, response.data.user);
       router.push('/');
     } catch (err: any) {
       setError(err.message);

@@ -1,32 +1,40 @@
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { TokenPayload } from '../types/auth.types.js';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecret_charge_circle_key_2026_dev';
+const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET || 'supersecret_charge_circle_key_2026_dev';
+const REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || process.env.JWT_SECRET || 'supersecret_charge_circle_key_2026_dev';
 
 /**
- * Creates a signed JWT for the given user.
- * The token expires after 7 days.
+ * Signs a short-lived access JWT (15 minutes).
  *
- * @param userId - Unique identifier for the user
- * @param nickname - Display name embedded in the token for socket middleware
- * @returns Signed JWT string
+ * Used for API authentication (`Authorization: Bearer <token>`)
+ * and Socket.io handshake. Short expiry minimises the window for
+ * token theft; clients refresh via the long-lived refresh token.
  */
-export function signToken(userId: string, nickname: string): string {
-  return jwt.sign({ userId, nickname }, JWT_SECRET, { expiresIn: '7d' });
+export function signAccessToken(userId: string, nickname: string): string {
+  return jwt.sign({ userId, nickname }, ACCESS_SECRET, { expiresIn: '15m' });
 }
 
 /**
- * Verifies and decodes a JWT.
- * Returns null (rather than throwing) when the token is invalid or expired,
- * so callers can treat authentication failure as a predictable case.
- *
- * @param token - Raw JWT string from the Authorization header or socket handshake
- * @returns Decoded payload, or null if verification fails
+ * Verifies and decodes an access JWT.
+ * Returns null (rather than throwing) on expiry or invalid signature.
  */
-export function verifyToken(token: string): TokenPayload | null {
+export function verifyAccessToken(token: string): TokenPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as TokenPayload;
+    return jwt.verify(token, ACCESS_SECRET) as TokenPayload;
   } catch {
     return null;
   }
+}
+
+/**
+ * Generates a cryptographically random opaque refresh token.
+ *
+ * These are stored hashed in the database (SHA-256) so a database
+ * breach does not expose active tokens. Each token is 40 bytes of
+ * randomness (80 hex chars), making brute-force infeasible.
+ */
+export function generateRefreshToken(): string {
+  return crypto.randomBytes(40).toString('hex');
 }

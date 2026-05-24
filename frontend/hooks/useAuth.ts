@@ -2,39 +2,66 @@ import { useState, useEffect } from 'react';
 import { User } from '../app/types';
 import { api } from '../lib/api';
 
+const ACCESS_KEY = 'accessToken';
+const REFRESH_KEY = 'refreshToken';
+const USER_KEY = 'user';
+
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Check if token exists and load user info from local storage (or fetch profile)
-    const storedUser = localStorage.getItem('user');
-    const token = localStorage.getItem('token');
-    
-    if (storedUser && token) {
+    const storedUser = localStorage.getItem(USER_KEY);
+    const accessToken = localStorage.getItem(ACCESS_KEY);
+
+    if (storedUser && accessToken) {
       try {
         const parsed = JSON.parse(storedUser);
         setUser(parsed);
-      } catch (err) {
-        // If local storage is corrupt (e.g. string "undefined"), clear it out
-        localStorage.removeItem('user');
-        localStorage.removeItem('token');
+      } catch {
+        clearStorage();
       }
     }
     setLoading(false);
   }, []);
 
-  const login = (token: string, userData: User) => {
-    localStorage.setItem('token', token);
-    localStorage.setItem('user', JSON.stringify(userData));
+  const login = (accessToken: string, refreshToken: string, userData: User) => {
+    localStorage.setItem(ACCESS_KEY, accessToken);
+    localStorage.setItem(REFRESH_KEY, refreshToken);
+    localStorage.setItem(USER_KEY, JSON.stringify(userData));
     setUser(userData);
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    const refreshToken = localStorage.getItem(REFRESH_KEY);
+    if (refreshToken) {
+      api.post('/auth/logout', { refreshToken }).catch(() => {});
+    }
+    clearStorage();
     setUser(null);
   };
 
-  return { user, loading, login, logout };
+  const refreshTokens = async (): Promise<string | null> => {
+    const refreshToken = localStorage.getItem(REFRESH_KEY);
+    if (!refreshToken) return null;
+
+    try {
+      const res = await api.post('/auth/refresh', { refreshToken });
+      localStorage.setItem(ACCESS_KEY, res.data.accessToken);
+      localStorage.setItem(REFRESH_KEY, res.data.refreshToken);
+      return res.data.accessToken;
+    } catch {
+      clearStorage();
+      setUser(null);
+      return null;
+    }
+  };
+
+  const clearStorage = () => {
+    localStorage.removeItem(ACCESS_KEY);
+    localStorage.removeItem(REFRESH_KEY);
+    localStorage.removeItem(USER_KEY);
+  };
+
+  return { user, loading, login, logout, refreshTokens };
 }

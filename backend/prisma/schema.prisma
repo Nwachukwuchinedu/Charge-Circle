@@ -13,20 +13,35 @@ model User {
   passwordHash String   @map("password_hash")
   createdAt    DateTime @default(now()) @map("created_at")
 
-  rooms        Room[]
-  chatMessages ChatMessage[]
-  moveHistory  MoveHistory[]
+  rooms         Room[]
+  chatMessages  ChatMessage[]
+  moveHistory   MoveHistory[]
+  refreshTokens RefreshToken[]
 
   @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(cuid())
+  tokenHash String   @unique @map("token_hash")
+  userId    String   @map("user_id")
+  expiresAt DateTime @map("expires_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  revokedAt DateTime? @map("revoked_at")
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@map("refresh_tokens")
 }
 
 model Room {
   id         String   @id @default(cuid())
   name       String
   ownerId    String   @map("owner_id")
-  status     String   @default("waiting") // waiting | playing | finished
+  status     String   @default("waiting")
   boardSize  Int      @default(10) @map("board_size")
-  maxPlayers Int?     @map("max_players") // null = unlimited
+  maxPlayers Int?     @map("max_players")
   createdAt  DateTime @default(now()) @map("created_at")
 
   owner        User          @relation(fields: [ownerId], references: [id])

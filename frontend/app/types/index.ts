@@ -4,6 +4,12 @@ export interface User {
   email: string;
 }
 
+export interface AuthResponse {
+  accessToken: string;
+  refreshToken: string;
+  user: User;
+}
+
 export interface GameState {
   roomId: string;
   pieceX: number;

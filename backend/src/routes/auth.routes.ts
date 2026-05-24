@@ -1,22 +1,40 @@
 import { Router } from 'express';
 import { AuthController } from '../controllers/auth.controller.js';
 import { validate } from '../middleware/validate.middleware.js';
-import { SignupDto, LoginDto } from '../dto/auth.dto.js';
+import { requireAuth } from '../middleware/auth.middleware.js';
+import { SignupDto, LoginDto, RefreshDto, LogoutDto } from '../dto/auth.dto.js';
 
 const router = Router();
 
 /**
  * POST /api/auth/signup
  * Registers a new operator account.
- * Body: { nickname: string, email: string, password: string }
  */
 router.post('/signup', validate(SignupDto), AuthController.signup);
 
 /**
  * POST /api/auth/login
  * Authenticates an existing operator.
- * Body: { email: string, password: string }
  */
 router.post('/login', validate(LoginDto), AuthController.login);
+
+/**
+ * POST /api/auth/refresh
+ * Exchanges a valid refresh token for a new token pair.
+ */
+router.post('/refresh', validate(RefreshDto), AuthController.refresh);
+
+/**
+ * POST /api/auth/logout
+ * Revokes a single refresh token (one-device logout).
+ */
+router.post('/logout', validate(LogoutDto), AuthController.logout);
+
+/**
+ * POST /api/auth/logout-all
+ * Revokes all refresh tokens for the authenticated user.
+ * Requires a valid access token.
+ */
+router.post('/logout-all', requireAuth, AuthController.logoutAll);
 
 export default router;

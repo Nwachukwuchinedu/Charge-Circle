@@ -1,5 +1,5 @@
 import { Request, Response, NextFunction } from 'express';
-import { verifyToken } from '../utils/jwt.js';
+import { verifyAccessToken } from '../utils/jwt.js';
 import { ApiResponse } from '../utils/apiResponse.js';
 
 /** Express request extended with the authenticated user's ID. */
@@ -21,7 +21,7 @@ export const requireAuth = (req: AuthRequest, res: Response, next: NextFunction)
   }
 
   const token = authHeader.split(' ')[1];
-  const decoded = verifyToken(token);
+  const decoded = verifyAccessToken(token);
 
   if (!decoded) {
     ApiResponse.unauthorized(res, 'Invalid or expired token');

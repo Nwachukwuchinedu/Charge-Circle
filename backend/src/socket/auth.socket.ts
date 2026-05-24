@@ -1,5 +1,5 @@
 import { Socket } from 'socket.io';
-import { verifyToken } from '../utils/jwt.js';
+import { verifyAccessToken } from '../utils/jwt.js';
 import { TokenPayload } from '../types/auth.types.js';
 
 /**
@@ -25,7 +25,7 @@ export const socketAuthMiddleware = (socket: AuthSocket, next: (err?: Error) => 
     return next(new Error('Authentication error: Token missing'));
   }
 
-  const decoded: TokenPayload | null = verifyToken(token);
+  const decoded: TokenPayload | null = verifyAccessToken(token);
   if (!decoded) {
     return next(new Error('Authentication error: Invalid token'));
   }

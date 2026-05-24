@@ -14,3 +14,15 @@ export const LoginDto = z.object({
   password: z.string(),
 });
 export type LoginDto = z.infer<typeof LoginDto>;
+
+/** Validates refresh token exchange requests. */
+export const RefreshDto = z.object({
+  refreshToken: z.string(),
+});
+export type RefreshDto = z.infer<typeof RefreshDto>;
+
+/** Validates logout (single device) requests. */
+export const LogoutDto = z.object({
+  refreshToken: z.string(),
+});
+export type LogoutDto = z.infer<typeof LogoutDto>;

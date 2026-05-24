@@ -1,31 +1,38 @@
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 import { prisma } from '../utils/prisma.js';
-import { signToken } from '../utils/jwt.js';
+import { signAccessToken, generateRefreshToken } from '../utils/jwt.js';
 import { AppError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 import { AuthResult } from '../types/auth.types.js';
 
 const SALT_ROUNDS = 12;
+const REFRESH_TOKEN_DAYS = 7;
 
 /**
- * Handles user registration and authentication.
+ * Hashes a raw refresh token with SHA-256 for DB storage.
+ */
+function hashToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+/**
+ * Handles user registration, authentication, and token lifecycle.
  *
- * Passwords are hashed with bcrypt and never stored
- * or returned in plaintext. JWT tokens expire after 7 days.
+ * **Access tokens** are short-lived JWTs (15 minutes) used for API and
+ * Socket.io authentication. They are stateless — no DB lookup on verify.
+ *
+ * **Refresh tokens** are opaque 40-byte random strings stored as SHA-256
+ * hashes in the database. They enable token rotation (old token revoked on
+ * each refresh) and per-device revocation.
  *
  * Input sanitization and format validation is handled by the DTO layer.
- * This service enforces business rules only:
- * - Email uniqueness during signup
- * - Credential matching during login
+ * This service enforces business rules only.
  */
 export class AuthService {
   /**
-   * Registers a new user account.
+   * Registers a new user account and issues an access + refresh token pair.
    *
-   * @param email - Normalized email (already lowercased by DTO)
-   * @param nickname - Display name (already trimmed and stripped by DTO)
-   * @param password - Plaintext password (already length-checked by DTO)
-   * @returns JWT token and user profile (without password hash)
    * @throws AppError if the email is already registered
    */
   static async signup(email: string, nickname: string, password: string): Promise<AuthResult> {
@@ -37,19 +44,20 @@ export class AuthService {
       data: { email, nickname, passwordHash },
     });
 
-    const token = signToken(user.id, user.nickname);
+    const accessToken = signAccessToken(user.id, user.nickname);
+    const refreshToken = await this.createRefreshToken(user.id);
+
     logger.info(`[Auth] User registered: ${user.email}`);
-    return { token, user: { id: user.id, email: user.email, nickname: user.nickname } };
+    return { accessToken, refreshToken, user: { id: user.id, email: user.email, nickname: user.nickname } };
   }
 
   /**
-   * Authenticates an existing user by email and password.
+   * Authenticates an existing user and issues a new token pair.
    *
-   * @param email - Normalized email (already lowercased by DTO)
-   * @param password - Plaintext password
-   * @returns JWT token and user profile
-   * @throws AppError if credentials are invalid (same message for both cases
-   *   to prevent email enumeration)
+   * Uses the same error message for both "user not found" and "wrong password"
+   * to prevent email enumeration attacks.
+   *
+   * @throws AppError if credentials are invalid
    */
   static async login(email: string, password: string): Promise<AuthResult> {
     const user = await prisma.user.findUnique({ where: { email } });
@@ -64,7 +72,79 @@ export class AuthService {
       throw new AppError('Invalid credentials');
     }
 
-    const token = signToken(user.id, user.nickname);
-    return { token, user: { id: user.id, email: user.email, nickname: user.nickname } };
+    const accessToken = signAccessToken(user.id, user.nickname);
+    const refreshToken = await this.createRefreshToken(user.id);
+
+    return { accessToken, refreshToken, user: { id: user.id, email: user.email, nickname: user.nickname } };
+  }
+
+  /**
+   * Exchanges a valid refresh token for a new access + refresh token pair.
+   *
+   * Implements **token rotation**: the old refresh token is revoked and a new
+   * one is issued. If a compromised refresh token is presented after being
+   * used by the legitimate client, it will already be revoked and the request
+   * will fail — limiting the window for token theft.
+   *
+   * @param rawToken - The opaque refresh token string from the client
+   * @throws AppError if the token is invalid, expired, or already revoked
+   */
+  static async refreshAccessToken(rawToken: string): Promise<AuthResult> {
+    const tokenHash = hashToken(rawToken);
+    const stored = await prisma.refreshToken.findUnique({ where: { tokenHash } });
+
+    if (!stored || stored.revokedAt || stored.expiresAt < new Date()) {
+      throw new AppError('Invalid or expired refresh token');
+    }
+
+    const user = await prisma.user.findUnique({ where: { id: stored.userId } });
+    if (!user) throw new AppError('User not found');
+
+    await prisma.refreshToken.update({
+      where: { id: stored.id },
+      data: { revokedAt: new Date() },
+    });
+
+    const accessToken = signAccessToken(user.id, user.nickname);
+    const refreshToken = await this.createRefreshToken(user.id);
+
+    return { accessToken, refreshToken, user: { id: user.id, email: user.email, nickname: user.nickname } };
+  }
+
+  /**
+   * Revokes a single refresh token (logout from one device).
+   */
+  static async revokeRefreshToken(rawToken: string): Promise<void> {
+    const tokenHash = hashToken(rawToken);
+    await prisma.refreshToken.updateMany({
+      where: { tokenHash, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
+
+  /**
+   * Revokes every active refresh token for a user (logout from all devices).
+   */
+  static async revokeAllUserTokens(userId: string): Promise<void> {
+    await prisma.refreshToken.updateMany({
+      where: { userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+  }
+
+  /**
+   * Creates and persists a new opaque refresh token.
+   * The raw token is returned to the caller; only the SHA-256 hash is stored.
+   */
+  private static async createRefreshToken(userId: string): Promise<string> {
+    const raw = generateRefreshToken();
+    const tokenHash = hashToken(raw);
+    const expiresAt = new Date(Date.now() + REFRESH_TOKEN_DAYS * 24 * 60 * 60 * 1000);
+
+    await prisma.refreshToken.create({
+      data: { tokenHash, userId, expiresAt },
+    });
+
+    return raw;
   }
 }
