@@ -16,7 +16,8 @@ export class AuthController {
    */
   static async signup(req: Request, res: Response): Promise<void> {
     try {
-      const result = await AuthService.signup(req.body as any);
+      const { email, nickname, password } = req.body;
+      const result = await AuthService.signup(email, nickname, password);
       ApiResponse.created(res, 'User registered successfully', result);
     } catch (error: any) {
       ApiResponse.error(res, error.message, error);
@@ -29,7 +30,8 @@ export class AuthController {
    */
   static async login(req: Request, res: Response): Promise<void> {
     try {
-      const result = await AuthService.login(req.body as any);
+      const { email, password } = req.body;
+      const result = await AuthService.login(email, password);
       ApiResponse.success(res, 'Login successful', result);
     } catch (error: any) {
       ApiResponse.unauthorized(res, error.message, error);

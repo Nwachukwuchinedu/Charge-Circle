@@ -1,5 +1,6 @@
 import { prisma } from '../utils/prisma.js';
 import { AppError } from '../utils/errors.js';
+import { logger } from '../utils/logger.js';
 
 /** Result returned after a successful piece move. */
 export interface MoveResult {
@@ -12,6 +13,7 @@ export interface MoveResult {
     turnQueue: unknown;
   };
   from: { x: number; y: number };
+  scored: boolean;
 }
 
 /**
@@ -33,7 +35,7 @@ export class GameService {
    * @param userId - The player attempting the move
    * @param toX - Destination column (0-indexed)
    * @param toY - Destination row (0-indexed)
-   * @returns Updated game state and the previous piece position (for delta broadcasting)
+   * @returns Updated game state, previous position, and whether it scored
    * @throws AppError if validation fails (not your turn, out of bounds, etc.)
    */
   static async movePiece(roomId: string, userId: string, toX: number, toY: number): Promise<MoveResult> {
@@ -111,7 +113,7 @@ export class GameService {
           scored: result.scored,
         },
       })
-      .catch((err) => console.error('[MoveHistory] Failed to log move:', err.message));
+      .catch((err) => logger.error('[MoveHistory] Failed to log move:', { error: err.message }));
 
     return result;
   }

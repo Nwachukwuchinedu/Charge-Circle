@@ -1,6 +1,26 @@
 import { prisma } from '../utils/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { ActiveUser, PlayerSummary } from '../types/room.types.js';
+import { Prisma } from '@prisma/client';
+
+/** Full room payload returned to clients after a join, including players and chat. */
+type RoomWithDetails = Prisma.RoomGetPayload<{
+  include: {
+    gameStates: true;
+    owner: { select: { nickname: true } };
+    chatMessages: { include: { user: { select: { nickname: true } } }; take: number; orderBy: { createdAt: 'asc' } };
+  };
+}> & { players: PlayerSummary[] };
+
+/** Room shape returned to the room list. */
+type RoomListItem = Prisma.RoomGetPayload<{
+  include: { owner: { select: { nickname: true } } };
+}>;
+
+/** Created room with game state and players. */
+type CreatedRoom = Prisma.RoomGetPayload<{
+  include: { gameStates: true };
+}> & { players: PlayerSummary[] };
 
 /**
  * Manages room lifecycle: creation, joining, player tracking, and stale cleanup.
@@ -22,7 +42,7 @@ export class RoomService {
    * @param maxPlayers - Optional player limit; null means unlimited
    * @returns The created room with its game state and initial player list
    */
-  static async createRoom(ownerId: string, name: string, maxPlayers: number | null = null) {
+  static async createRoom(ownerId: string, name: string, maxPlayers: number | null = null): Promise<CreatedRoom> {
     const dbUser = await prisma.user.findUnique({
       where: { id: ownerId },
       select: { nickname: true },
@@ -62,7 +82,7 @@ export class RoomService {
    * Returns all rooms that are currently waiting or in play,
    * ordered by most recently created first.
    */
-  static async getRooms() {
+  static async getRooms(): Promise<RoomListItem[]> {
     return prisma.room.findMany({
       where: { status: { in: ['waiting', 'playing'] } },
       include: { owner: { select: { nickname: true } } },
@@ -79,7 +99,7 @@ export class RoomService {
    * @returns Full room state including game state, players, and recent chat messages
    * @throws AppError if the room is full, finished, or not found
    */
-  static async joinRoom(roomId: string, userId: string) {
+  static async joinRoom(roomId: string, userId: string): Promise<RoomWithDetails | null> {
     const room = await prisma.room.findUnique({
       where: { id: roomId },
       include: { gameStates: true },
