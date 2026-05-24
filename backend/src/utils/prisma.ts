@@ -18,7 +18,6 @@ neonConfig.webSocketConstructor = ws;
  *   Falls back to `DATABASE_URL` when not set.
  */
 const connectionString = process.env.DATABASE_URL || '';
-const directConnectionString = process.env.DIRECT_URL || connectionString;
 
 const adapter = new PrismaNeon({ connectionString });
 

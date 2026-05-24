@@ -7,9 +7,9 @@ import { MoveResult } from '../types/game.types.js';
 /**
  * Core game logic for moving the shared Energy Orb and managing turn rotation.
  *
- * State is read from an in-memory cache (RoomService.roomCache) to eliminate
- * DB round trips on every move. On a cache miss the data is loaded from the
- * database and the cache is seeded.
+ * State is read from RoomService.roomCache to eliminate DB round trips on
+ * every move. On a cache miss the data is loaded from the database and the
+ * cache is seeded.
  *
  * The actual state mutation is a single Prisma update (no transaction overhead).
  * Move history is persisted asynchronously.
@@ -18,11 +18,11 @@ export class GameService {
   /**
    * Validates and executes a piece move for the given user in the given room.
    *
-   * 1. Reads state from the in-memory cache (falls back to DB on miss).
-   * 2. Validates turn ownership, board bounds, and adjacency.
-   * 3. Computes the new state (score, target, queue rotation).
-   * 4. Writes the new state with a single atomic Prisma `update`.
-   * 5. Updates the in-memory cache.
+    * 1. Reads state from the room cache (loads from DB on miss).
+    * 2. Validates turn ownership, board bounds, and adjacency.
+    * 3. Computes the new state (score, target, queue rotation).
+    * 4. Writes the new state with a single atomic Prisma `update`.
+    * 5. Updates the room cache.
    *
    * @param roomId - The room where the move occurs
    * @param userId - The player attempting the move
@@ -34,7 +34,7 @@ export class GameService {
   static async movePiece(roomId: string, userId: string, toX: number, toY: number): Promise<MoveResult> {
     const start = Date.now();
 
-    // ── Load state (cache preferred; DB fallback) ──────────────────────
+    // ── Load state (cache preferred; DB on miss) ───────────────────────
     const cached = RoomService.getRoomCache(roomId);
     let boardSize = cached?.boardSize;
     let gs = cached?.gameState;

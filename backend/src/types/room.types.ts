@@ -1,6 +1,6 @@
 import { Prisma } from '@prisma/client';
 
-/** A player currently active in a room (in-memory tracking). */
+/** A player currently active in a room. Tracked server-side in a Map keyed by roomId. */
 export interface ActiveUser {
   id: string;
   nickname: string;
@@ -15,7 +15,7 @@ export interface PlayerSummary {
   online: boolean;
 }
 
-/** In-memory cache entry for a room's constant data and hot game state. */
+/** Cache entry for a room's constant data and hot game state. */
 export interface RoomCacheEntry {
   boardSize: number;
   gameState: {

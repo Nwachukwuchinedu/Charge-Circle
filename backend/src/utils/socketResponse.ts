@@ -77,7 +77,8 @@ export class SocketResponse {
     });
 
     if (callback) {
-      const { errorObj, ...clientResponse } = response;
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+const { errorObj, ...clientResponse } = response;
       if (!clientResponse.success) {
         clientResponse.error = displayError;
       }

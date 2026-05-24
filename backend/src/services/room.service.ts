@@ -6,8 +6,8 @@ import { ActiveUser, PlayerSummary, RoomCacheEntry, RoomWithDetails, RoomListIte
 /**
  * Manages room lifecycle: creation, joining, player tracking, and stale cleanup.
  *
- * Active players are tracked in-memory (via `activeUsersMap`) for fast lookups
- * during gameplay. The map is kept in sync with the database turn queue.
+ * Active players are tracked via `activeUsersMap` for fast lookups during
+ * gameplay. The map is kept in sync with the database turn queue.
  * Disconnected players are removed after a 30-second grace period via a periodic sweep.
  */
 export class RoomService {
@@ -15,12 +15,12 @@ export class RoomService {
   static activeUsersMap = new Map<string, ActiveUser[]>();
 
   /**
-   * In-memory cache of hot room data (boardSize, game state).
+   * Cache of hot room data (boardSize, game state).
    *
    * Eliminates DB round trips for the most frequently accessed fields.
    * Populated on room creation/join and updated after every move.
    * On a multi-instance deployment each server maintains its own cache;
-   * a cache miss falls through to the database, so correctness is never compromised.
+   * a cache miss loads from the database, so correctness is never compromised.
    */
   private static roomCache = new Map<string, RoomCacheEntry>();
 
@@ -40,7 +40,7 @@ export class RoomService {
   }
 
   /**
-   * Creates a new room, initialises its game state, seeds the in-memory cache,
+   * Creates a new room, initialises its game state, seeds the room cache,
    * and registers the owner as the first active player.
    *
    * @param ownerId - User ID of the room creator
@@ -112,7 +112,7 @@ export class RoomService {
   }
 
   /**
-   * Adds a user to a room. Seeds the in-memory cache on first access.
+   * Adds a user to a room. Seeds the room cache on first access.
    *
    * @param roomId - Target room
    * @param userId - Joining user
@@ -213,7 +213,7 @@ export class RoomService {
   }
 
   /**
-   * Marks a user as disconnected in the in-memory map.
+   * Marks a user as disconnected in the active-users map.
    * The user will be removed from the room after the 30-second grace period
    * by the periodic cleanup sweep.
    */

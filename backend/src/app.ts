@@ -36,7 +36,12 @@ const io = new Server(httpServer, {
 
 app.use('/api/auth', authRoutes);
 
-setupRedis(io);
+try {
+  await setupRedis(io);
+} catch (err) {
+  logger.error(`[Startup] ${(err as Error).message}`);
+  process.exit(1);
+}
 startDbKeepalive();
 BroadcastService.initialize(io);
 RoomService.startCleanupSweep();
