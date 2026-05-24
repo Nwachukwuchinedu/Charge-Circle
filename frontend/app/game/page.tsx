@@ -11,7 +11,8 @@ import TurnBanner from '../components/game/TurnBanner';
 import { HUDToggle, HUDDrawer } from '../components/game/HUDOverlay';
 import ConnectionBadge from '../components/ui/ConnectionBadge';
 import LoadingSpinner from '../components/ui/LoadingSpinner';
-import { GameState, Room, GameStateDelta } from '../types';
+import { GameState, Room, GameStateDelta, ChatMessage } from '../types';
+import { useUIStore } from '../stores/ui.store';
 import { Users, MessageSquare, ArrowLeft, Zap } from 'lucide-react';
 
 function GameContent() {
@@ -25,6 +26,13 @@ function GameContent() {
   const [room, setRoom] = useState<Room | null>(null);
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [errorText, setErrorText] = useState<string | null>(null);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const chatOpen = useUIStore((s) => s.chatOpen);
+
+  useEffect(() => {
+    if (chatOpen) setUnreadCount(0);
+  }, [chatOpen]);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
@@ -37,12 +45,14 @@ function GameContent() {
         else {
           setRoom(response.room);
           if (response.room.gameStates?.[0]) setGameState(response.room.gameStates[0]);
+          if (response.room.chatMessages) setChatMessages(response.room.chatMessages);
         }
       });
 
       socket.on('room_state_update', (updatedRoom: Room) => {
         setRoom(updatedRoom);
         if (updatedRoom.gameStates?.[0]) setGameState(updatedRoom.gameStates[0]);
+        if (updatedRoom.chatMessages) setChatMessages(updatedRoom.chatMessages);
       });
 
       socket.on('game_state_delta', (delta: GameStateDelta) => {
@@ -58,6 +68,14 @@ function GameContent() {
         });
       });
 
+      socket.on('chat_message', (msg: ChatMessage) => {
+        setChatMessages((prev) => [...prev, msg]);
+        const isChatOpen = useUIStore.getState().chatOpen;
+        if (!isChatOpen) {
+          setUnreadCount((prev) => prev + 1);
+        }
+      });
+
       socket.on('game_error', (data: { message: string }) => {
         setErrorText(data.message);
         setTimeout(() => setErrorText(null), 4000);
@@ -69,6 +87,7 @@ function GameContent() {
         socket.off('room_state_update');
         socket.off('game_state_delta');
         socket.off('game_error');
+        socket.off('chat_message');
       }
     };
   }, [socket, connected, roomId]);
@@ -154,7 +173,7 @@ function GameContent() {
         {/* Floating HUD controls (bottom-right) */}
         <div className="absolute bottom-4 right-4 flex items-center gap-2 z-30">
           <HUDToggle side="queue" label="Queue" icon={<Users size={16} />} count={queueForPanel.length} />
-          <HUDToggle side="chat" label="Chat" icon={<MessageSquare size={16} />} />
+          <HUDToggle side="chat" label="Chat" icon={<MessageSquare size={16} />} count={unreadCount > 0 ? unreadCount : undefined} />
         </div>
 
         {/* Queue Drawer */}
@@ -164,7 +183,7 @@ function GameContent() {
 
         {/* Chat Drawer */}
         <HUDDrawer side="chat" title="Comms Channel" icon={<MessageSquare size={16} />}>
-          <ChatPanel roomId={roomId} socket={socket} initialMessages={room.chatMessages} />
+          <ChatPanel roomId={roomId} socket={socket} messages={chatMessages} />
         </HUDDrawer>
       </main>
     </div>

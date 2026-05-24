@@ -8,30 +8,10 @@ import { Send } from 'lucide-react';
 import Input from './ui/Input';
 import Button from './ui/Button';
 
-export default function ChatPanel({ roomId, socket, initialMessages = [] }: { roomId: string, socket: Socket | null, initialMessages?: ChatMessage[] }) {
+export default function ChatPanel({ roomId, socket, messages }: { roomId: string, socket: Socket | null, messages: ChatMessage[] }) {
   const { user } = useAuth();
-  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (initialMessages.length > 0) {
-      setMessages(initialMessages);
-    }
-  }, [initialMessages]);
-
-  useEffect(() => {
-    if (!socket) return;
-
-    const handleNewMessage = (msg: ChatMessage) => {
-      setMessages(prev => [...prev, msg]);
-    };
-
-    socket.on('chat_message', handleNewMessage);
-    return () => {
-      socket.off('chat_message', handleNewMessage);
-    };
-  }, [socket]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -50,7 +30,7 @@ export default function ChatPanel({ roomId, socket, initialMessages = [] }: { ro
       <div className="bg-[#181920] border-b border-zinc-800 px-4 py-3 font-bold text-sm text-zinc-300">
         Comms Channel
       </div>
-      <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-[300px] max-h-[400px]">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3 min-h-0">
         {messages.map((msg, idx) => (
           <div key={idx} className={`flex flex-col ${msg.userId === user?.id ? 'items-end' : 'items-start'}`}>
             <span className="text-[10px] text-zinc-500 mb-1">{msg.user?.nickname || 'Unknown'}</span>
