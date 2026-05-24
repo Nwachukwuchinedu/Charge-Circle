@@ -1,136 +1,23 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '../hooks/useAuth';
-import { useSocket } from '../hooks/useSocket';
-import { useRoomList } from '../hooks/useRoomList';
-import ConnectionBadge from './components/ui/ConnectionBadge';
-import StatStrip from './components/lobby/StatStrip';
-import type { StatItem } from './components/lobby/StatStrip';
-import RoomCard from './components/lobby/RoomCard';
-import CreateRoomModal from './components/lobby/CreateRoomModal';
-import { LogOut, Radio } from 'lucide-react';
+import LandingCanvas from './components/landing/LandingCanvas';
+import HeroSection from './components/landing/HeroSection';
+import HowItWorksSection from './components/landing/HowItWorksSection';
+import FeaturesSection from './components/landing/FeaturesSection';
+import StatsSection from './components/landing/StatsSection';
+import CtaSection from './components/landing/CtaSection';
+import Footer from './components/landing/Footer';
 
-export default function Lobby() {
-  const { user, loading, logout } = useAuth();
-  const { socket, connected } = useSocket();
-  const router = useRouter();
-
-  const { data: rooms = [], isLoading: isLoadingRooms } = useRoomList(socket, connected);
-
-  useEffect(() => {
-    if (!loading && !user) router.push('/login');
-  }, [user, loading, router]);
-
-  const handleCreateRoom = (name: string, maxPlayers: number | null) => {
-    if (!socket) return;
-    socket.emit('create_room', { name, maxPlayers }, (response: any) => {
-      if (response.success) {
-        router.push(`/game?roomId=${response.room.id}`);
-      } else {
-        alert(response.error || 'Failed to create room');
-      }
-    });
-  };
-
-  const handleJoinRoom = (roomId: string) => {
-    if (!socket) return;
-    socket.emit('join_room', { roomId }, (response: any) => {
-      if (response.success) {
-        router.push(`/game?roomId=${roomId}`);
-      } else {
-        alert(response.error || 'Failed to join room');
-      }
-    });
-  };
-
-  if (loading || !user) {
-    return (
-      <div className="min-h-screen bg-[#060709] flex items-center justify-center text-indigo-400 font-mono text-sm">
-        <span className="flex items-center gap-3">
-          <span className="h-2 w-2 rounded-full bg-indigo-400 animate-pulse" />
-          Initializing Node Authentication...
-        </span>
-      </div>
-    );
-  }
-
-  const stats: StatItem[] = [
-    { label: 'Total Energy', value: 1247, suffix: ' GW', icon: 'zap', accent: 'indigo' },
-    { label: 'Active Rooms', value: rooms.length, icon: 'radio', accent: 'emerald' },
-    { label: 'Online Nodes', value: rooms.reduce((sum, r) => sum + (r.players?.length || 0), 0), icon: 'grid', accent: 'cyan' },
-    { label: 'Grid Status', value: connected ? 100 : 0, suffix: '%', icon: 'activity', accent: connected ? 'emerald' : 'amber' },
-  ];
-
+export default function LandingPage() {
   return (
     <div className="min-h-screen bg-[#060709] text-zinc-100">
-      {/* Ambient glow */}
-      <div className="fixed top-0 left-1/4 w-[500px] h-[500px] rounded-full bg-indigo-900/10 blur-[120px] pointer-events-none" />
-      <div className="fixed bottom-0 right-1/4 w-[500px] h-[500px] rounded-full bg-cyan-900/10 blur-[120px] pointer-events-none" />
-
-      {/* Header */}
-      <header className="sticky top-0 z-30 border-b border-zinc-900/60 bg-[#060709]/80 backdrop-blur-md px-4 sm:px-6 py-3">
-        <div className="max-w-6xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-indigo-500 to-cyan-400 font-black text-white text-sm shadow-lg shadow-indigo-500/20">
-              C
-            </div>
-            <div className="hidden sm:block">
-              <h1 className="text-sm font-bold tracking-tight text-white">Charge Circle</h1>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <div className="hidden sm:flex items-center gap-1.5 text-xs text-zinc-500">
-              <Radio size={12} className="text-indigo-400" />
-              Operator: <span className="text-emerald-400 font-medium">{user.nickname}</span>
-            </div>
-            <ConnectionBadge connected={connected} />
-            <button
-              onClick={() => { logout(); router.push('/login'); }}
-              className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-rose-400 bg-zinc-900/60 hover:bg-rose-500/10 border border-zinc-800 hover:border-rose-500/30 px-3 py-1.5 rounded-lg transition-all"
-            >
-              <LogOut size={12} /> <span className="hidden sm:inline">Disconnect</span>
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main */}
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-8 pb-24 flex flex-col gap-6">
-        {/* Stat strip */}
-        <StatStrip stats={stats} />
-
-        {/* Section header */}
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-bold text-zinc-300 flex items-center gap-2">
-            Active Grid Nodes
-            <span className="text-xs font-mono text-zinc-600 bg-zinc-900/60 px-2 py-0.5 rounded-full border border-zinc-800">
-              {rooms.length}
-            </span>
-          </h2>
-        </div>
-
-        {/* Room grid */}
-        {isLoadingRooms ? (
-          <div className="text-center py-16 text-zinc-600 text-sm font-mono">Scanning for active nodes...</div>
-        ) : rooms.length === 0 ? (
-          <div className="text-center py-16 border border-dashed border-zinc-800/40 rounded-2xl bg-zinc-900/20">
-            <p className="text-zinc-500 text-sm mb-2">No active rooms available.</p>
-            <p className="text-zinc-600 text-xs">Initialize a new room to start playing.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {rooms.map((room, i) => (
-              <RoomCard key={room.id} room={room} onJoin={handleJoinRoom} index={i} />
-            ))}
-          </div>
-        )}
-      </main>
-
-      {/* FAB */}
-      <CreateRoomModal onCreate={handleCreateRoom} />
+      <LandingCanvas />
+      <HeroSection />
+      <HowItWorksSection />
+      <FeaturesSection />
+      <StatsSection />
+      <CtaSection />
+      <Footer />
     </div>
   );
 }

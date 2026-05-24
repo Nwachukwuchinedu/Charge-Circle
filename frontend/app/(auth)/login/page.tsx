@@ -24,7 +24,7 @@ export default function Login() {
     try {
       const response = await api.post('/auth/login', { email, password });
       login(response.data.accessToken, response.data.refreshToken, response.data.user);
-      router.push('/');
+      router.push('/lobby');
     } catch (err: any) {
       setError(err.message);
     } finally {

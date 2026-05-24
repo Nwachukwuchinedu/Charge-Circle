@@ -14,8 +14,14 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Charge Circle — Collaborative Real-Time Power Grid Game",
-  description: "A real-time multiplayer grid game where up to 1,000 operators cooperate to guide an Energy Orb and charge the power grid grid-by-grid.",
+  title: "Charge Circle — Real-Time Collaborative Grid Game",
+  description:
+    "Join thousands of operators in a real-time multiplayer grid game. Collaborate, compete, and charge the circle together. Built with Next.js, Socket.io, and Postgres.",
+  openGraph: {
+    title: "Charge Circle",
+    description:
+      "A real-time multiplayer grid game where operators cooperate to guide the Energy Orb and charge the grid.",
+  },
 };
 
 export default function RootLayout({

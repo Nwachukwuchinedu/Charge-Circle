@@ -117,7 +117,7 @@ function GameContent() {
       <header className="relative z-30 flex items-center justify-between px-4 py-2.5 border-b border-zinc-900/60 bg-[#060709]/80 backdrop-blur-md shrink-0">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => router.push('/')}
+            onClick={() => router.push('/lobby')}
             className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-white bg-zinc-900/60 hover:bg-zinc-800 border border-zinc-800 px-3 py-1.5 rounded-lg transition-all"
           >
             <ArrowLeft size={14} /> Lobby

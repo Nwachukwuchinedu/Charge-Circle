@@ -39,6 +39,9 @@ export function useAuth() {
     }
     clearStorage();
     setUser(null);
+    if (typeof window !== 'undefined') {
+      window.location.href = '/';
+    }
   };
 
   const refreshTokens = async (): Promise<string | null> => {
