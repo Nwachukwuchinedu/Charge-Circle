@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import Badge from './ui/Badge';
+import Card from './ui/Card';
 
 interface User {
   id: string;
@@ -17,21 +19,17 @@ interface QueuePanelProps {
 }
 
 export default function QueuePanel({ queue, myUserId, myNickname }: QueuePanelProps) {
-  // Find current user's position in the queue
   const myIndex = queue.findIndex(u => u.id === myUserId);
   const myPosition = myIndex !== -1 ? myIndex + 1 : null;
   const myData = myIndex !== -1 ? queue[myIndex] : null;
 
   return (
     <div className="flex flex-col gap-6 w-full lg:w-96">
-      {/* 1. Personal Console (Glassmorphism Panel) */}
-      <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-[#0e0f13]/60 p-5 shadow-xl backdrop-blur-md">
-        <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-indigo-500/5 blur-xl"></div>
-        <div className="absolute -left-8 -bottom-8 h-24 w-24 rounded-full bg-cyan-500/5 blur-xl"></div>
+      <Card variant="glass" className="relative overflow-hidden p-5">
+        <div className="absolute -right-8 -top-8 h-24 w-24 rounded-full bg-indigo-500/5 blur-xl" />
+        <div className="absolute -left-8 -bottom-8 h-24 w-24 rounded-full bg-cyan-500/5 blur-xl" />
 
-        <h3 className="text-sm font-semibold text-indigo-400 mb-4">
-          Your Status
-        </h3>
+        <h3 className="text-sm font-semibold text-indigo-400 mb-4">Your Status</h3>
 
         {myUserId ? (
           <div className="flex flex-col gap-3">
@@ -44,17 +42,9 @@ export default function QueuePanel({ queue, myUserId, myNickname }: QueuePanelPr
 
             <div className="flex items-center justify-between">
               <span className="text-zinc-400 text-sm">Turn Status</span>
-              {myData?.myTurn ? (
-                <span className="flex items-center gap-1.5 text-emerald-400 text-sm font-semibold animate-pulse">
-                  <span className="h-2 w-2 rounded-full bg-emerald-400"></span>
-                  Active Turn
-                </span>
-              ) : (
-                <span className="flex items-center gap-1.5 text-indigo-400 text-sm font-medium">
-                  <span className="h-2 w-2 rounded-full bg-indigo-400/50"></span>
-                  Waiting...
-                </span>
-              )}
+              <Badge variant={myData?.myTurn ? 'success' : 'info'} dot>
+                {myData?.myTurn ? 'Active Turn' : 'Waiting...'}
+              </Badge>
             </div>
 
             <div className="flex items-center justify-between">
@@ -71,7 +61,6 @@ export default function QueuePanel({ queue, myUserId, myNickname }: QueuePanelPr
               </span>
             </div>
 
-            {/* Quick action message */}
             <div className="mt-4 pt-3 border-t border-zinc-800/40 text-xs">
               {myData?.myTurn ? (
                 <div className="text-emerald-400 font-medium bg-emerald-500/10 p-2.5 rounded-lg border border-emerald-500/25">
@@ -93,20 +82,16 @@ export default function QueuePanel({ queue, myUserId, myNickname }: QueuePanelPr
             Initializing connection...
           </div>
         )}
-      </div>
+      </Card>
 
-      {/* 2. Player Queue List */}
-      <div className="flex flex-col flex-1 rounded-2xl border border-zinc-800 bg-[#0e0f13]/60 p-5 shadow-xl">
+      <Card variant="glass" className="flex flex-col flex-1 p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-indigo-400">
-            Player Queue
-          </h3>
-          <span className="text-xs bg-indigo-500/10 text-indigo-300 font-mono px-2.5 py-0.5 rounded-full border border-indigo-500/20">
+          <h3 className="text-sm font-semibold text-indigo-400">Player Queue</h3>
+          <Badge variant="info" className="text-xs font-mono px-2.5 py-0.5">
             {queue.length} Online
-          </span>
+          </Badge>
         </div>
 
-        {/* Scrollable Queue Container */}
         <div className="flex flex-col gap-2 overflow-y-auto max-h-[300px] pr-1 custom-scrollbar">
           {queue.length === 0 ? (
             <div className="text-zinc-600 text-sm text-center py-8">
@@ -115,7 +100,7 @@ export default function QueuePanel({ queue, myUserId, myNickname }: QueuePanelPr
           ) : (
             queue.map((user, idx) => {
               const isSelf = user.id === myUserId;
-              
+
               return (
                 <div
                   key={user.id}
@@ -128,30 +113,27 @@ export default function QueuePanel({ queue, myUserId, myNickname }: QueuePanelPr
                   }`}
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    {/* Index / Position badge */}
                     <span className={`font-mono text-xs font-bold w-5 text-right ${
                       user.myTurn ? 'text-emerald-400' : 'text-zinc-600'
                     }`}>
                       {idx + 1}
                     </span>
 
-                    {/* Connection Indicator */}
                     <span className="relative flex h-2 w-2 shrink-0">
                       {user.online ? (
                         <>
                           <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${
                             user.myTurn ? 'bg-emerald-400' : 'bg-indigo-400'
-                          }`}></span>
+                          }`} />
                           <span className={`relative inline-flex rounded-full h-2 w-2 ${
                             user.myTurn ? 'bg-emerald-400' : 'bg-indigo-400'
-                          }`}></span>
+                          }`} />
                         </>
                       ) : (
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-zinc-600"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-zinc-600" />
                       )}
                     </span>
 
-                    {/* Nickname */}
                     <span className={`text-sm truncate ${
                       isSelf ? 'text-indigo-300 font-semibold' : 'text-zinc-300'
                     }`}>
@@ -160,24 +142,16 @@ export default function QueuePanel({ queue, myUserId, myNickname }: QueuePanelPr
                   </div>
 
                   <div className="flex items-center gap-3">
-                    {/* Cycles counter */}
                     <span className="text-xs font-mono text-zinc-500" title="Cycles since last move">
                       C: {user.counter}
                     </span>
 
-                    {/* Status Badge */}
                     {user.myTurn ? (
-                      <span className="text-[10px] tracking-wider font-semibold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
-                        Active
-                      </span>
+                      <Badge variant="success" className="text-[10px] px-2 py-0.5">Active</Badge>
                     ) : !user.online ? (
-                      <span className="text-[10px] tracking-wider font-medium text-zinc-600 bg-zinc-800/40 px-2 py-0.5 rounded">
-                        Offline
-                      </span>
+                      <Badge variant="neutral" className="text-[10px] px-2 py-0.5">Offline</Badge>
                     ) : (
-                      <span className="text-[10px] tracking-wider font-medium text-zinc-500">
-                        Wait
-                      </span>
+                      <span className="text-[10px] tracking-wider font-medium text-zinc-500">Wait</span>
                     )}
                   </div>
                 </div>
@@ -185,7 +159,7 @@ export default function QueuePanel({ queue, myUserId, myNickname }: QueuePanelPr
             })
           )}
         </div>
-      </div>
+      </Card>
     </div>
   );
 }

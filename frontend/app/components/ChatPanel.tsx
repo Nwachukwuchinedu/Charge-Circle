@@ -5,6 +5,8 @@ import { Socket } from 'socket.io-client';
 import { useAuth } from '../../hooks/useAuth';
 import { ChatMessage } from '../types';
 import { Send } from 'lucide-react';
+import Input from './ui/Input';
+import Button from './ui/Button';
 
 export default function ChatPanel({ roomId, socket, initialMessages = [] }: { roomId: string, socket: Socket | null, initialMessages?: ChatMessage[] }) {
   const { user } = useAuth();
@@ -20,7 +22,7 @@ export default function ChatPanel({ roomId, socket, initialMessages = [] }: { ro
 
   useEffect(() => {
     if (!socket) return;
-    
+
     const handleNewMessage = (msg: ChatMessage) => {
       setMessages(prev => [...prev, msg]);
     };
@@ -38,7 +40,7 @@ export default function ChatPanel({ roomId, socket, initialMessages = [] }: { ro
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || !socket) return;
-    
+
     socket.emit('send_chat', { roomId, message: input });
     setInput('');
   };
@@ -62,16 +64,15 @@ export default function ChatPanel({ roomId, socket, initialMessages = [] }: { ro
         <div ref={messagesEndRef} />
       </div>
       <form onSubmit={handleSend} className="p-3 bg-[#181920] border-t border-zinc-800 flex gap-2">
-        <input 
-          type="text" 
+        <Input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Transmit message..."
-          className="flex-1 bg-[#060709] border border-zinc-800 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500"
+          className="flex-1 rounded-lg px-3 py-2 text-sm"
         />
-        <button type="submit" disabled={!input.trim()} className="p-2 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg transition-colors">
+        <Button type="submit" disabled={!input.trim()} variant="primary" className="p-2 rounded-lg">
           <Send size={16} />
-        </button>
+        </Button>
       </form>
     </div>
   );

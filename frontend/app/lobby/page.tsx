@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../hooks/useAuth';
 import { useSocket } from '../../hooks/useSocket';
 import { useRoomList } from '../../hooks/useRoomList';
 import ConnectionBadge from '../components/ui/ConnectionBadge';
+import LoadingSpinner from '../components/ui/LoadingSpinner';
+import Logo from '../components/ui/Logo';
 import StatStrip from '../components/lobby/StatStrip';
 import type { StatItem } from '../components/lobby/StatStrip';
 import RoomCard from '../components/lobby/RoomCard';
@@ -46,14 +48,7 @@ export default function Lobby() {
   };
 
   if (loading || !user) {
-    return (
-      <div className="min-h-screen bg-[#060709] flex items-center justify-center text-indigo-400 font-mono text-sm">
-        <span className="flex items-center gap-3">
-          <span className="h-2 w-2 rounded-full bg-indigo-400 animate-pulse" />
-          Initializing Node Authentication...
-        </span>
-      </div>
-    );
+    return <LoadingSpinner text="Initializing Node Authentication..." fullScreen />;
   }
 
   const stats: StatItem[] = [
@@ -71,9 +66,7 @@ export default function Lobby() {
       <header className="sticky top-0 z-30 border-b border-zinc-900/60 bg-[#060709]/80 backdrop-blur-md px-4 sm:px-6 py-3">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-indigo-500 to-cyan-400 font-black text-white text-sm shadow-lg shadow-indigo-500/20">
-              C
-            </div>
+            <Logo size="sm" />
             <div className="hidden sm:block">
               <h1 className="text-sm font-bold tracking-tight text-white">Charge Circle</h1>
             </div>

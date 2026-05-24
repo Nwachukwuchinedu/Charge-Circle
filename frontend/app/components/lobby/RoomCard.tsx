@@ -3,6 +3,8 @@
 import { motion } from 'framer-motion';
 import { Play, Users, Lock, Unlock } from 'lucide-react';
 import type { Room } from '../../types';
+import Badge from '../ui/Badge';
+import Button from '../ui/Button';
 
 export default function RoomCard({
   room,
@@ -32,15 +34,11 @@ export default function RoomCard({
             by <span className="text-zinc-400">{room.owner?.nickname || 'Unknown'}</span>
           </p>
         </div>
-        <span className={`text-[10px] uppercase tracking-wider font-semibold px-2.5 py-0.5 rounded-full border ${
-          room.status === 'playing'
-            ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/25'
-            : room.status === 'waiting'
-            ? 'text-amber-400 bg-amber-500/10 border-amber-500/25'
-            : 'text-zinc-500 bg-zinc-800/40 border-zinc-700/40'
-        }`}>
+        <Badge
+          variant={room.status === 'playing' ? 'success' : room.status === 'waiting' ? 'warning' : 'neutral'}
+        >
           {room.status}
-        </span>
+        </Badge>
       </div>
 
       <div className="flex items-center gap-4 text-xs text-zinc-500 mb-4">
@@ -56,21 +54,15 @@ export default function RoomCard({
         </span>
       </div>
 
-      <button
+      <Button
         onClick={() => onJoin(room.id)}
         disabled={isFull}
-        className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-medium transition-all border ${
-          isFull
-            ? 'bg-zinc-900 text-zinc-600 border-zinc-800 cursor-not-allowed'
-            : 'bg-zinc-800/60 text-zinc-200 border-zinc-700/60 hover:bg-emerald-600 hover:border-emerald-500 hover:text-white hover:shadow-lg hover:shadow-emerald-500/10'
-        }"
+        variant="secondary"
+        leftIcon={!isFull ? <Play size={14} /> : undefined}
+        className="w-full py-2.5 text-sm font-medium rounded-lg"
       >
-        {isFull ? (
-          <>Room Full</>
-        ) : (
-          <><Play size={14} /> Join Node</>
-        )}
-      </button>
+        {isFull ? 'Room Full' : 'Join Node'}
+      </Button>
     </motion.div>
   );
 }

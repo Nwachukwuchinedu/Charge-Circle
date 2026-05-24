@@ -1,29 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Zap, Radio, Grid3x3, Activity } from 'lucide-react';
-
-function AnimatedCounter({ value, suffix = '' }: { value: number; suffix?: string }) {
-  const [display, setDisplay] = useState(0);
-
-  useEffect(() => {
-    const start = display;
-    const diff = value - start;
-    if (diff === 0) return;
-    const duration = 800;
-    const startTime = performance.now();
-    const tick = (now: number) => {
-      const p = Math.min((now - startTime) / duration, 1);
-      const eased = 1 - Math.pow(1 - p, 3);
-      setDisplay(Math.floor(start + diff * eased));
-      if (p < 1) requestAnimationFrame(tick);
-    };
-    requestAnimationFrame(tick);
-  }, [value]);
-
-  return <span className="font-mono">{display.toLocaleString()}{suffix}</span>;
-}
+import AnimatedCounter from '../animated/AnimatedCounter';
 
 export interface StatItem {
   label: string;

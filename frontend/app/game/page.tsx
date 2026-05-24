@@ -10,6 +10,7 @@ import ChatPanel from '../components/ChatPanel';
 import TurnBanner from '../components/game/TurnBanner';
 import { HUDToggle, HUDDrawer } from '../components/game/HUDOverlay';
 import ConnectionBadge from '../components/ui/ConnectionBadge';
+import LoadingSpinner from '../components/ui/LoadingSpinner';
 import { GameState, Room, GameStateDelta } from '../types';
 import { Users, MessageSquare, ArrowLeft, Zap } from 'lucide-react';
 
@@ -47,7 +48,7 @@ function GameContent() {
       socket.on('game_state_delta', (delta: GameStateDelta) => {
         setGameState((prev) => {
           if (!prev) return null;
-          let nextQueue = [...prev.turnQueue];
+          const nextQueue = [...prev.turnQueue];
           if (delta.activePlayer && prev.turnQueue[0] !== delta.activePlayer) {
             const old = nextQueue.shift();
             if (old) nextQueue.push(old);
@@ -78,14 +79,7 @@ function GameContent() {
   }, [socket, connected, roomId]);
 
   if (!roomId) return <div className="text-white p-8">No Room ID provided. Join from the Lobby.</div>;
-  if (!user || !gameState || !room) return (
-    <div className="min-h-screen bg-[#060709] flex items-center justify-center text-indigo-400 font-mono text-sm">
-      <span className="flex items-center gap-3">
-        <span className="h-2 w-2 rounded-full bg-indigo-400 animate-pulse" />
-        Synchronizing Grid State...
-      </span>
-    </div>
-  );
+  if (!user || !gameState || !room) return <LoadingSpinner text="Synchronizing Grid State..." fullScreen />;
 
   const handleMove = (newX: number, newY: number) => {
     if (socket && connected) socket.emit('move_piece', { roomId, toX: newX, toY: newY });
@@ -184,16 +178,7 @@ function GameContent() {
 
 export default function Game() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-[#060709] flex items-center justify-center text-indigo-400 font-mono text-sm">
-          <span className="flex items-center gap-3">
-            <span className="h-2 w-2 rounded-full bg-indigo-400 animate-pulse" />
-            Synchronizing Grid State...
-          </span>
-        </div>
-      }
-    >
+    <Suspense fallback={<LoadingSpinner text="Synchronizing Grid State..." fullScreen />}>
       <GameContent />
     </Suspense>
   );
