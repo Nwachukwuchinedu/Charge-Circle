@@ -29,6 +29,7 @@ export const setupGameHandlers = (io: Server, socket: AuthSocket): void => {
         piece: { x: result.state.pieceX, y: result.state.pieceY },
         activePlayer: (result.state.turnQueue as string[])?.[0] || '',
         score: result.state.score,
+        turnQueue: result.state.turnQueue as string[],
         lastMove: {
           userId: socket.userId!,
           from: result.from,

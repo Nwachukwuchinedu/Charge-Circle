@@ -5,6 +5,7 @@ export interface GameStateDelta {
   score?: number;
   lastMove?: { userId: string; from: { x: number; y: number }; to: { x: number; y: number } };
   gridCharged?: boolean;
+  turnQueue?: string[];
 }
 
 /** Result returned after a successful piece move. */

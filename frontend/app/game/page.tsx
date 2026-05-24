@@ -48,17 +48,12 @@ function GameContent() {
       socket.on('game_state_delta', (delta: GameStateDelta) => {
         setGameState((prev) => {
           if (!prev) return null;
-          const nextQueue = [...prev.turnQueue];
-          if (delta.activePlayer && prev.turnQueue[0] !== delta.activePlayer) {
-            const old = nextQueue.shift();
-            if (old) nextQueue.push(old);
-          }
           return {
             ...prev,
             pieceX: delta.piece ? delta.piece.x : prev.pieceX,
             pieceY: delta.piece ? delta.piece.y : prev.pieceY,
             score: delta.score !== undefined ? delta.score : prev.score,
-            turnQueue: nextQueue,
+            turnQueue: delta.turnQueue || prev.turnQueue,
           };
         });
       });
