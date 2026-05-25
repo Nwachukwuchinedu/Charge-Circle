@@ -2,7 +2,6 @@ import { Server } from 'socket.io';
 import { AuthSocket } from './auth.socket.js';
 import { RoomService } from '../services/room.service.js';
 import { SocketResponse } from '../utils/socketResponse.js';
-import { AppError } from '../utils/errors.js';
 import { CreateRoomDto, JoinRoomDto, UpdateRoomDto, DeleteRoomDto } from '../dto/room.dto.js';
 
 /**
@@ -44,7 +43,6 @@ export const setupRoomHandlers = (io: Server, socket: AuthSocket): void => {
     try {
       const parsed = JoinRoomDto.parse(data);
       const room = await RoomService.joinRoom(parsed.roomId, socket.userId!);
-      if (!room) throw new AppError('Failed to join room');
       socket.join(room.id);
       SocketResponse.broadcast(io.to(room.id), room.id, 'room_state_update', room);
       SocketResponse.broadcast(io, null, 'rooms_updated', null);
@@ -60,9 +58,9 @@ export const setupRoomHandlers = (io: Server, socket: AuthSocket): void => {
       await RoomService.leaveRoom(roomId, socket.userId!);
       socket.leave(roomId);
       SocketResponse.broadcast(io, null, 'rooms_updated', null);
-      if (callback) callback({ success: true });
+      SocketResponse.acknowledge(socket, callback, { success: true });
     } catch (error: any) {
-      if (callback) callback({ success: false, error: error.message });
+      SocketResponse.acknowledge(socket, callback, { success: false, error: error.message, errorObj: error });
     }
   });
 
@@ -99,18 +97,18 @@ export const setupRoomHandlers = (io: Server, socket: AuthSocket): void => {
       const room = await RoomService.getRoomDetails(data.roomId);
       SocketResponse.broadcast(io.to(data.roomId), data.roomId, 'round_start', { room });
       SocketResponse.broadcast(io, null, 'rooms_updated', null);
-      if (callback) callback({ success: true });
+      SocketResponse.acknowledge(socket, callback, { success: true });
     } catch (error: any) {
-      if (callback) callback({ success: false, error: error.message });
+      SocketResponse.acknowledge(socket, callback, { success: false, error: error.message, errorObj: error });
     }
   });
 
   socket.on('get_leaderboard', async (data: { roomId: string }, callback) => {
     try {
       const result = await RoomService.getLeaderboard(data.roomId, socket.userId!);
-      if (callback) callback({ success: true, ...result });
+      SocketResponse.acknowledge(socket, callback, { success: true, ...result });
     } catch (error: any) {
-      if (callback) callback({ success: false, error: error.message });
+      SocketResponse.acknowledge(socket, callback, { success: false, error: error.message, errorObj: error });
     }
   });
 };

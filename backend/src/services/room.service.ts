@@ -109,7 +109,7 @@ export class RoomService {
    * @returns Room details including the new player, or null if room not found
    * @throws AppError if the room is full
    */
-  static async joinRoom(roomId: string, userId: string): Promise<RoomWithDetails | null> {
+  static async joinRoom(roomId: string, userId: string): Promise<RoomWithDetails> {
     const room = await prisma.room.findUnique({
       where: { id: roomId },
       select: { id: true, maxPlayers: true, status: true, boardSize: true },
@@ -143,7 +143,9 @@ export class RoomService {
       });
     }
 
-    return this.getRoomDetails(roomId);
+    const details = await this.getRoomDetails(roomId);
+    if (!details) throw new AppError('Failed to join room');
+    return details;
   }
 
   /**
