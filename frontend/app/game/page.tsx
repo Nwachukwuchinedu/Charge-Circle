@@ -108,6 +108,14 @@ function GameContent() {
           >
             <LogOut size={14} className="rotate-180" /> <span className="max-sm:hidden">Leave</span>
           </button>
+          {!isActive && room.ownerId === user.id && (
+            <button
+              onClick={emitStartRound}
+              className="sm:hidden flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 bg-emerald-950/20 hover:bg-emerald-900/20 border border-emerald-900/30 px-2 py-1.5 rounded-lg cursor-pointer transition-all shrink-0"
+            >
+              <Play size={14} /> <span className="max-sm:hidden">Start</span>
+            </button>
+          )}
           <div className="hidden sm:flex items-center gap-1 text-xs text-zinc-500 min-w-0">
             <span className="text-indigo-300 font-medium truncate max-w-[120px]">{room.name}</span>
             <span className="mx-1 shrink-0">·</span>
