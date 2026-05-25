@@ -4,6 +4,9 @@
 
 > **Live**: [charge-circle-frontend.onrender.com](https://charge-circle-frontend.onrender.com) — create an account, join a room, start a round.
 
+> [!TIP]
+> Install the **Markdown Preview Mermaid Support** extension in your editor to preview the architecture diagram.
+
 A simultaneous-play grid game where operators navigate Energy Orbs across a shared board to charge the circle. Built with reactive architecture — every player moves independently, sees their own targets and scores in real time, and competes on a live leaderboard.
 
 > No turn queue. No waiting. Every move counts instantly.
