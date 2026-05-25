@@ -124,12 +124,5 @@ function sanitise(payload: any): any {
   if (Array.isArray(copy.users)) copy.users = `[Array of ${copy.users.length} users]`;
   if (Array.isArray(copy.players)) copy.players = `[Array of ${copy.players.length} players]`;
 
-  if (copy.state?.turnQueue) {
-    copy.state = { ...copy.state, turnQueue: `[Array of ${copy.state.turnQueue.length}]` };
-  }
-  if (copy.room?.turnQueue) {
-    copy.room = { ...copy.room, turnQueue: `[Array of ${copy.room.turnQueue.length}]` };
-  }
-
   return copy;
 }

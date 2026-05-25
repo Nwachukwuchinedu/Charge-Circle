@@ -2,7 +2,7 @@ import { prisma } from '../utils/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 import { MoveResult } from '../types/game.types.js';
-import { randomizeTarget } from './helpers.js';
+import { randomizeTarget } from '../utils/helpers.js';
 
 /**
  * Core game logic for moving a player's personal Energy Orb.

@@ -5,7 +5,7 @@ import { logger } from '../utils/logger.js';
 import { RoomWithDetails, RoomListItem } from '../types/room.types.js';
 import { LeaderboardEntry } from '../types/game.types.js';
 import { BroadcastService } from './broadcast.service.js';
-import { randomizeTarget, getRoomLeaderboard } from './helpers.js';
+import { randomizeTarget, getRoomLeaderboard } from '../utils/helpers.js';
 
 const ROUND_DURATION_MS = 60_000;
 

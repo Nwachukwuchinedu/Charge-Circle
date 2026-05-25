@@ -3,7 +3,7 @@ import { SocketResponse } from '../utils/socket.response.js';
 import { GameStateDelta } from '../types/game.types.js';
 import { prisma } from '../utils/prisma.js';
 import { logger } from '../utils/logger.js';
-import { getRoomLeaderboard } from './helpers.js';
+import { getRoomLeaderboard } from '../utils/helpers.js';
 
 /**
  * Throttled broadcast service that batches per-player state updates.
