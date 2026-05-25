@@ -96,6 +96,10 @@ flowchart LR
 - **JWT access/refresh token auth** — 15-minute access tokens, opaque refresh tokens with SHA-256 hashing and rotation.
 - **Per-device logout** — token rotation enables single-device revocation.
 - **Canvas-rendered game board** — smooth grid with animated pieces, pulsing targets, and coordinate labels.
+- **Optimistic local moves** — piece position updates immediately on click, server confirmation reconciles silently — zero perceived latency.
+- **Persistent per-user totalScore** — cumulative score across all games stored on the `User` model; survives room leaves and logout.
+- **GET /auth/me** — lightweight endpoint to refresh cached user data (including `totalScore`) on page load without re-login.
+- **Mobile-responsive game page** — leaderboard switches from sidebar to slide-in drawer on mobile; touch event handlers on canvas; safe-area-inset support; top bar adapts to small screens.
 - **Throttled broadcasts** — per-player deltas flushed every 50ms, moves throttled at 200ms per user.
 - **Toast notifications** — replacing native `alert()` with animated, auto-dismissing, accessible toasts.
 - **Framer Motion animations** — slide-in modals, leaderboards, toasts, and page transitions.
@@ -208,7 +212,8 @@ User
 ├── nickname: String
 ├── email: String @unique
 ├── passwordHash: String
-└── createdAt: DateTime
+├── createdAt: DateTime
+└── totalScore: Int (default 0)
     │
     ├── 1:N Room (owner)
     ├── 1:N GameState
@@ -300,7 +305,15 @@ MoveHistory        (autoincrement id)
           → issue new pair
    Server ← { accessToken, refreshToken, user }
 
-5. Logout
+5. Fetch Current User
+   ──────────────────
+   Client → GET /api/auth/me (Authorization: Bearer <accessToken>)
+   Server → verifyAccessToken(token) → getUserData(userId)
+          → returns { user: { id, email, nickname, totalScore } }
+   Used by: Frontend useAuth hook on mount to refresh cached user data.
+           Also called by refreshTokens() to keep totalScore up to date.
+
+6. Logout
    ──────
    Client → POST /api/auth/logout { refreshToken }
    Server → SHA-256 hash → revoke
@@ -404,9 +417,9 @@ frontend/
 │       │   ├── Logo.tsx        # Gradient "C" logo
 │       │   └── Toast.tsx       # Toaster + toast imperative API
 │       ├── game/
-│       │   ├── GameGrid.tsx    # Canvas-rendered board with animations
+│       │   ├── GameGrid.tsx    # Canvas-rendered board (touch+mouse events, ResizeObserver)
 │       │   ├── HUDOverlay.tsx  # Chat toggle + slide-in drawer
-│       │   ├── Leaderboard.tsx # Scrollable ranked list with medal icons
+│       │   ├── Leaderboard.tsx # Dual-mode: desktop sidebar + mobile slide-in drawer with backdrop
 │       │   └── RoundTimer.tsx  # Animated progress bar with countdown
 │       ├── lobby/
 │       │   ├── RoomCard.tsx    # Room preview card with stats
@@ -461,7 +474,7 @@ The project uses a **layered state approach**:
 | **Client state** | Zustand | Transient UI state that doesn't need server sync | `chatOpen` toggle, toast queue |
 | **Local state** | `useState` | Component-specific ephemeral state | Form values, hover tile, canvas size |
 | **Socket state** | Custom hooks | Connection lifecycle + event binding | `useSocket`, `useGameSocket`, `useRoomOperations` |
-| **Auth state** | Custom hook + localStorage | Persisted session across page loads | `useAuth` reads user/tokens from localStorage on mount |
+| **Auth state** | Custom hook + localStorage + API re-fetch | Persisted session across page loads, refreshed on mount via `GET /auth/me` | `useAuth` reads user/tokens from localStorage on mount, then fetches `/auth/me` to get latest `totalScore` |
 
 ### Custom Hooks
 
@@ -720,6 +733,10 @@ npm run build     # Compile / Build
 | **Zustand over Context for toasts** | `useToastStore.getState()` allows calling `toast.error()` from non-React code (socket callbacks, `api.ts` interceptors). |
 | **Redis required at startup** | Using Upstash (cloud Redis) means no local Docker dependency. Server exits cleanly with error message if `REDIS_URL` is missing — prevents split-brain without pub/sub. |
 | **Prisma with Neon adapter** | `@prisma/adapter-neon` uses WebSocket transport, avoiding connection pool limits of traditional PostgreSQL drivers on serverless. |
+| **Persistent totalScore on User** | Cumulative score stored directly on the `User` model, incremented atomically in a `$transaction` alongside `GameState.update`. Survives room leave (which deletes GameState). No aggregate query needed — single column read on auth. |
+| **Optimistic local moves** | `handleMove` updates `gameState.pieceX/pieceY` immediately via `setGameState` before `emitMove` reaches the server. The server `player_delta` later confirms the same position. Zero perceived latency — no lerp, no round-trip wait. |
+| **Leaderboard dual-mode (sidebar + drawer)** | On desktop (`md:`), the leaderboard is a fixed `w-72` sidebar in the flex layout. On mobile, it becomes a fixed slide-in drawer with backdrop overlay. Same `isOpen` prop controls both — no separate state management. |
+| **AnimatedCounter `useState(value)` init** | Initial display state equals the actual value, not `0`. Prevents StictMode double-effect bug where `startRef.current` was already set on re-mount, causing `diff === 0` and early return — leaving the counter stuck at `0`. |
 
 ---
 
