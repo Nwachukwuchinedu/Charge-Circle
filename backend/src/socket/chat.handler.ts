@@ -28,7 +28,7 @@ export const setupChatHandlers = (io: Server, socket: AuthSocket): void => {
       const optimisticMsg = {
         id: Date.now(),
         roomId: parsed.roomId,
-        userId: socket.userId,
+        userId: socket.userId!,
         message: parsed.message,
         createdAt: new Date().toISOString(),
         user: { nickname: socket.nickname || 'Player' },

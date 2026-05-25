@@ -2,7 +2,7 @@ import { Server } from 'socket.io';
 import { AuthSocket } from './auth.socket.js';
 import { RoomService } from '../services/room.service.js';
 import { SocketResponse } from '../utils/socketResponse.js';
-import { CreateRoomDto, JoinRoomDto, UpdateRoomDto, DeleteRoomDto } from '../dto/room.dto.js';
+import { CreateRoomDto, JoinRoomDto, UpdateRoomDto, DeleteRoomDto, RoomIdDto } from '../dto/room.dto.js';
 
 /**
  * Registers room-management Socket.io event handlers on the given socket.
@@ -11,6 +11,9 @@ import { CreateRoomDto, JoinRoomDto, UpdateRoomDto, DeleteRoomDto } from '../dto
  * - `get_rooms`: Returns the list of active rooms.
  * - `create_room`: Creates a new room and joins the creator to it.
  * - `join_room`: Adds the user to an existing room and creates their GameState.
+ * - `leave_room`: Removes the user from a room and deletes their GameState.
+ * - `update_room`: Owner-only — edits room name or maxPlayers.
+ * - `delete_room`: Owner-only — deletes the room and kicks all members.
  * - `start_round`: Owner-only — starts a timed round for all players.
  * - `get_leaderboard`: Returns top players sorted by score.
  *
@@ -52,9 +55,9 @@ export const setupRoomHandlers = (io: Server, socket: AuthSocket): void => {
     }
   });
 
-  socket.on('leave_room', async (data: { roomId: string }, callback) => {
+  socket.on('leave_room', async (data: unknown, callback) => {
     try {
-      const { roomId } = data;
+      const { roomId } = RoomIdDto.parse(data);
       await RoomService.leaveRoom(roomId, socket.userId!);
       socket.leave(roomId);
       SocketResponse.broadcast(io, null, 'rooms_updated', null);
@@ -91,11 +94,12 @@ export const setupRoomHandlers = (io: Server, socket: AuthSocket): void => {
     }
   });
 
-  socket.on('start_round', async (data: { roomId: string }, callback) => {
+  socket.on('start_round', async (data: unknown, callback) => {
     try {
-      await RoomService.startRound(data.roomId, socket.userId!);
-      const room = await RoomService.getRoomDetails(data.roomId);
-      SocketResponse.broadcast(io.to(data.roomId), data.roomId, 'round_start', { room });
+      const { roomId } = RoomIdDto.parse(data);
+      await RoomService.startRound(roomId, socket.userId!);
+      const room = await RoomService.getRoomDetails(roomId);
+      SocketResponse.broadcast(io.to(roomId), roomId, 'round_start', { room });
       SocketResponse.broadcast(io, null, 'rooms_updated', null);
       SocketResponse.acknowledge(socket, callback, { success: true });
     } catch (error: any) {
@@ -103,9 +107,10 @@ export const setupRoomHandlers = (io: Server, socket: AuthSocket): void => {
     }
   });
 
-  socket.on('get_leaderboard', async (data: { roomId: string }, callback) => {
+  socket.on('get_leaderboard', async (data: unknown, callback) => {
     try {
-      const result = await RoomService.getLeaderboard(data.roomId, socket.userId!);
+      const { roomId } = RoomIdDto.parse(data);
+      const result = await RoomService.getLeaderboard(roomId, socket.userId!);
       SocketResponse.acknowledge(socket, callback, { success: true, ...result });
     } catch (error: any) {
       SocketResponse.acknowledge(socket, callback, { success: false, error: error.message, errorObj: error });

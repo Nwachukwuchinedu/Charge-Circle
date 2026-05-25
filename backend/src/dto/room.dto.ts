@@ -38,3 +38,11 @@ export const DeleteRoomDto = z.object({
   roomId: z.string(),
 });
 export type DeleteRoomDto = z.infer<typeof DeleteRoomDto>;
+
+/**
+ * Validates generic room-id-only requests (leave, start round, get leaderboard).
+ */
+export const RoomIdDto = z.object({
+  roomId: z.string(),
+});
+export type RoomIdDto = z.infer<typeof RoomIdDto>;
