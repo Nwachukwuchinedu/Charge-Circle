@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { User } from '../app/types';
 import { api } from '../lib/api';
+import { toast } from '../app/components/ui';
 
 const ACCESS_KEY = 'accessToken';
 const REFRESH_KEY = 'refreshToken';
@@ -45,7 +46,7 @@ export function useAuth() {
   const logout = useCallback(() => {
     const token = localStorage.getItem(REFRESH_KEY);
     if (token) {
-      api.post('/auth/logout', { refreshToken: token }).catch(() => {});
+      api.post('/auth/logout', { refreshToken: token }).catch(() => toast.error('Logout request failed'));
     }
     clearStorage();
     setUser(null);

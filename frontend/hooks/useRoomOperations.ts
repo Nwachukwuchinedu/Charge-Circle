@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { Socket } from 'socket.io-client';
 import { useRouter } from 'next/navigation';
+import { toast } from '../app/components/ui';
 import { Room } from '../app/types';
 
 interface SocketAck<T = unknown> {
@@ -29,7 +30,7 @@ export function useRoomOperations(socket: Socket | null) {
       if (response.success && response.room) {
         router.push(`/game?roomId=${response.room.id}`);
       } else {
-        alert(response.error || 'Failed to create room');
+        toast.error(response.error || 'Failed to create room');
       }
     });
   }, [socket, router]);
@@ -40,7 +41,7 @@ export function useRoomOperations(socket: Socket | null) {
       if (response.success) {
         router.push(`/game?roomId=${roomId}`);
       } else {
-        alert(response.error || 'Failed to join room');
+        toast.error(response.error || 'Failed to join room');
       }
     });
   }, [socket, router]);
@@ -49,7 +50,7 @@ export function useRoomOperations(socket: Socket | null) {
     if (!socket) return;
     socket.emit('update_room', { roomId, name, maxPlayers }, (response: SocketAck) => {
       if (!response.success) {
-        alert(response.error || 'Failed to update room');
+        toast.error(response.error || 'Failed to update room');
       }
     });
   }, [socket]);
@@ -58,7 +59,7 @@ export function useRoomOperations(socket: Socket | null) {
     if (!socket) return;
     socket.emit('delete_room', { roomId }, (response: SocketAck) => {
       if (!response.success) {
-        alert(response.error || 'Failed to delete room');
+        toast.error(response.error || 'Failed to delete room');
       }
     });
   }, [socket]);

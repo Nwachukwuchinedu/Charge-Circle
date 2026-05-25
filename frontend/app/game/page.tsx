@@ -10,7 +10,7 @@ import Leaderboard from '../components/game/Leaderboard';
 import RoundTimer from '../components/game/RoundTimer';
 import ChatPanel from '../components/ChatPanel';
 import { HUDToggle, HUDDrawer } from '../components/game/HUDOverlay';
-import { LoadingSpinner } from '../components/ui';
+import { LoadingSpinner, toast } from '../components/ui';
 import { GameState, Room, GameStateDelta, ChatMessage, LeaderboardEntry } from '../types';
 import { useUIStore } from '../stores/ui.store';
 import { Play, MessageSquare, LogOut, Zap, LayoutGrid } from 'lucide-react';
@@ -25,7 +25,6 @@ function GameContent() {
 
   const [room, setRoom] = useState<Room | null>(null);
   const [gameState, setGameState] = useState<GameState | null>(null);
-  const [errorText, setErrorText] = useState<string | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
@@ -67,8 +66,7 @@ function GameContent() {
   }, []);
 
   const handleError = useCallback((message: string) => {
-    setErrorText(message);
-    setTimeout(() => setErrorText(null), 4000);
+    toast.error(message);
   }, []);
 
   const { emitMove, emitLeaveRoom, emitStartRound } = useGameSocket({
@@ -146,12 +144,6 @@ function GameContent() {
       <main className="relative flex-1 flex min-h-0">
         {/* Board */}
         <div className="flex-1 flex flex-col min-h-0 relative">
-          {errorText && (
-            <div className="absolute top-2 left-1/2 -translate-x-1/2 z-40 px-4 py-2 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-400 text-xs font-medium backdrop-blur-sm shadow-xl">
-              {errorText}
-            </div>
-          )}
-
           {!isActive && (
             <div className="absolute top-2 left-1/2 -translate-x-1/2 z-40 px-4 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-medium backdrop-blur-sm">
               Waiting for round to start...
