@@ -11,7 +11,6 @@ import { BroadcastService } from './services/broadcast.service.js';
 import { RoomService } from './services/room.service.js';
 import { logger } from './utils/logger.js';
 import { socketAuthMiddleware, AuthSocket } from './socket/auth.socket.js';
-import { SocketResponse } from './utils/socketResponse.js';
 import { setupRoomHandlers } from './socket/room.handler.js';
 import { setupGameHandlers } from './socket/game.handler.js';
 import { setupChatHandlers } from './socket/chat.handler.js';
@@ -45,7 +44,6 @@ try {
 }
 startDbKeepalive();
 BroadcastService.initialize(io);
-RoomService.startCleanupSweep();
 
 io.use(socketAuthMiddleware);
 
@@ -57,18 +55,12 @@ io.on('connection', (socket) => {
   setupGameHandlers(io, authedSocket);
   setupChatHandlers(io, authedSocket);
 
-  socket.on('disconnecting', async () => {
+  socket.on('disconnecting', () => {
     for (const roomId of socket.rooms) {
       if (roomId !== socket.id) {
-        RoomService.markUserDisconnected(roomId, authedSocket.userId!);
-        try {
-          const roomDetails = await RoomService.getRoomDetails(roomId);
-          if (roomDetails) {
-            SocketResponse.broadcast(io.to(roomId), roomId, 'room_state_update', roomDetails);
-          }
-        } catch (err: any) {
-          logger.error(`[Disconnect broadcast error] Room: ${roomId}, User: ${authedSocket.userId}`, err);
-        }
+        RoomService.leaveRoom(roomId, authedSocket.userId!).catch((err) =>
+          logger.error(`[Disconnect] Failed to leave room ${roomId}:`, err.message),
+        );
       }
     }
   });

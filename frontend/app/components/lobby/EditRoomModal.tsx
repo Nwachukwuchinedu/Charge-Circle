@@ -1,12 +1,10 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import Button from '../ui/Button';
 import Input from '../ui/Input';
 import Modal from '../ui/Modal';
 import type { Room } from '../../types';
-
-const MAX_PLAYERS_DEFAULT = null as number | null;
 
 export default function EditRoomModal({
   room,
@@ -26,19 +24,10 @@ export default function EditRoomModal({
 }) {
   const [name, setName] = useState(room?.name ?? '');
   const [maxPlayers, setMaxPlayers] = useState<number | null>(
-    room ? (room as unknown as { maxPlayers?: number | null }).maxPlayers ?? MAX_PLAYERS_DEFAULT : MAX_PLAYERS_DEFAULT,
+    room && typeof room.maxPlayers === 'number' ? room.maxPlayers : null,
   );
   const [error, setError] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  useEffect(() => {
-    if (room) {
-      setName(room.name);
-      setMaxPlayers((room as any).maxPlayers ?? null);
-      setError('');
-      setIsSubmitting(false);
-    }
-  }, [room]);
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
@@ -54,9 +43,7 @@ export default function EditRoomModal({
       setIsSubmitting(true);
       onSave(room.id, trimmed, maxPlayers, (success) => {
         setIsSubmitting(false);
-        if (success) {
-          onClose();
-        }
+        if (success) onClose();
       });
     },
     [room, name, maxPlayers, onSave, onClose],

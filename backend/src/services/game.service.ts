@@ -1,72 +1,51 @@
 import { prisma } from '../utils/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
-import { RoomService } from './room.service.js';
 import { MoveResult } from '../types/game.types.js';
 
 /**
- * Core game logic for moving the shared Energy Orb and managing turn rotation.
+ * Core game logic for moving a player's personal Energy Orb.
  *
- * State is read from RoomService.roomCache to eliminate DB round trips on
- * every move. On a cache miss the data is loaded from the database and the
- * cache is seeded.
- *
- * The actual state mutation is a single Prisma update (no transaction overhead).
+ * Each player has their own piece, target, and score on a shared board size.
+ * Players move independently and simultaneously — no turn queue.
+ * Every move is a single atomic Prisma update on the player's row.
  * Move history is persisted asynchronously.
  */
 export class GameService {
   /**
    * Validates and executes a piece move for the given user in the given room.
    *
-    * 1. Reads state from the room cache (loads from DB on miss).
-    * 2. Validates turn ownership, board bounds, and adjacency.
-    * 3. Computes the new state (score, target, queue rotation).
-    * 4. Writes the new state with a single atomic Prisma `update`.
-    * 5. Updates the room cache.
+   * 1. Reads the player's GameState from DB.
+   * 2. Validates board bounds and adjacency.
+   * 3. Computes new state (score, target randomisation).
+   * 4. Writes with a single atomic Prisma `update`.
    *
    * @param roomId - The room where the move occurs
-   * @param userId - The player attempting the move
+   * @param userId - The player making the move
    * @param toX - Destination column (0-indexed)
    * @param toY - Destination row (0-indexed)
    * @returns Updated game state, previous position, and whether it scored
-   * @throws AppError if validation fails (not your turn, out of bounds, etc.)
+   * @throws AppError if validation fails (out of bounds, etc.)
    */
   static async movePiece(roomId: string, userId: string, toX: number, toY: number): Promise<MoveResult> {
     const start = Date.now();
 
-    // ── Load state (cache preferred; DB on miss) ───────────────────────
-    const cached = RoomService.getRoomCache(roomId);
-    let boardSize = cached?.boardSize;
-    let gs = cached?.gameState;
+    // ── Load room for board size ─────────────────────────────
+    const room = await prisma.room.findUnique({
+      where: { id: roomId },
+      select: { boardSize: true, status: true },
+    });
+    if (!room) throw new AppError('Room not found');
+    if (room.status !== 'active') throw new AppError('Round is not active');
 
-    if (!boardSize || !gs) {
-      const room = await prisma.room.findUnique({
-        where: { id: roomId },
-        select: { boardSize: true },
-      });
-      if (!room) throw new AppError('Room not found');
-      boardSize = room.boardSize;
+    // ── Load player's game state ────────────────────────────
+    const gs = await prisma.gameState.findUnique({
+      where: { roomId_userId: { roomId, userId } },
+    });
+    if (!gs) throw new AppError('Game state not found');
 
-      const dbState = await prisma.gameState.findUnique({ where: { roomId } });
-      if (!dbState) throw new AppError('Game state not found');
-
-      gs = {
-        pieceX: dbState.pieceX,
-        pieceY: dbState.pieceY,
-        targetX: dbState.targetX,
-        targetY: dbState.targetY,
-        score: dbState.score,
-        turnQueue: (dbState.turnQueue as string[]) ?? [],
-      };
-
-      RoomService.setRoomCache(roomId, { boardSize, gameState: gs });
-    }
-
-    // ── Validate ───────────────────────────────────────────────────────
-    const queue = gs.turnQueue;
-    if (queue[0] !== userId) throw new AppError('Not your turn');
-
-    if (toX < 0 || toX >= boardSize || toY < 0 || toY >= boardSize) {
+    // ── Validate ────────────────────────────────────────────
+    if (toX < 0 || toX >= room.boardSize || toY < 0 || toY >= room.boardSize) {
       throw new AppError('Move out of board bounds');
     }
 
@@ -76,7 +55,7 @@ export class GameService {
       throw new AppError('Invalid move — you can only move 1 tile');
     }
 
-    // ── Compute new state ──────────────────────────────────────────────
+    // ── Compute new state ───────────────────────────────────
     const scored = toX === gs.targetX && toY === gs.targetY;
     const scoreIncr = scored ? 1 : 0;
 
@@ -85,40 +64,26 @@ export class GameService {
 
     if (scored) {
       do {
-        newTargetX = Math.floor(Math.random() * boardSize);
-        newTargetY = Math.floor(Math.random() * boardSize);
+        newTargetX = Math.floor(Math.random() * room.boardSize);
+        newTargetY = Math.floor(Math.random() * room.boardSize);
       } while (newTargetX === toX && newTargetY === toY);
     }
 
-    const nextQueue = queue.length > 1 ? [...queue.slice(1), queue[0]] : queue;
     const newScore = gs.score + scoreIncr;
 
-    // ── Single atomic write ─────────────────────────────────────────────
+    // ── Single atomic write ─────────────────────────────────
     const updatedState = await prisma.gameState.update({
-      where: { roomId },
+      where: { roomId_userId: { roomId, userId } },
       data: {
         pieceX: toX,
         pieceY: toY,
         targetX: newTargetX,
         targetY: newTargetY,
         score: newScore,
-        turnQueue: nextQueue,
       },
     });
 
-    // ── Update cache ───────────────────────────────────────────────────
-    RoomService.setRoomCache(roomId, {
-      gameState: {
-        pieceX: updatedState.pieceX,
-        pieceY: updatedState.pieceY,
-        targetX: updatedState.targetX,
-        targetY: updatedState.targetY,
-        score: updatedState.score,
-        turnQueue: (updatedState.turnQueue as string[]) ?? [],
-      },
-    });
-
-    // ── Fire-and-forget history ────────────────────────────────────────
+    // ── Fire-and-forget history ─────────────────────────────
     const from = { x: gs.pieceX, y: gs.pieceY };
 
     prisma.moveHistory
@@ -143,7 +108,6 @@ export class GameService {
         targetX: updatedState.targetX,
         targetY: updatedState.targetY,
         score: updatedState.score,
-        turnQueue: updatedState.turnQueue,
       },
       from,
       scored,

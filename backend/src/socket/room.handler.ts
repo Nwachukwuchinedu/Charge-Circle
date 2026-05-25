@@ -11,15 +11,14 @@ import { CreateRoomDto, JoinRoomDto, UpdateRoomDto, DeleteRoomDto } from '../dto
  * Events:
  * - `get_rooms`: Returns the list of active rooms.
  * - `create_room`: Creates a new room and joins the creator to it.
- * - `join_room`: Adds the user to an existing room.
+ * - `join_room`: Adds the user to an existing room and creates their GameState.
+ * - `start_round`: Owner-only — starts a timed round for all players.
+ * - `get_leaderboard`: Returns top players sorted by score.
  *
  * @param io - The Socket.io server instance
  * @param socket - The authenticated client socket
  */
 export const setupRoomHandlers = (io: Server, socket: AuthSocket): void => {
-  /**
-   * Fetches all active (waiting / playing) rooms.
-   */
   socket.on('get_rooms', async (_data: unknown, callback) => {
     try {
       const rooms = await RoomService.getRooms();
@@ -29,10 +28,6 @@ export const setupRoomHandlers = (io: Server, socket: AuthSocket): void => {
     }
   });
 
-  /**
-   * Creates a new room with an optional player limit.
-   * The creator automatically joins the room.
-   */
   socket.on('create_room', async (data: unknown, callback) => {
     try {
       const parsed = CreateRoomDto.parse(data);
@@ -45,9 +40,6 @@ export const setupRoomHandlers = (io: Server, socket: AuthSocket): void => {
     }
   });
 
-  /**
-   * Joins an existing room by ID.
-   */
   socket.on('join_room', async (data: unknown, callback) => {
     try {
       const parsed = JoinRoomDto.parse(data);
@@ -62,38 +54,18 @@ export const setupRoomHandlers = (io: Server, socket: AuthSocket): void => {
     }
   });
 
-  /**
-   * Leaves an existing room by ID.
-   */
   socket.on('leave_room', async (data: { roomId: string }, callback) => {
     try {
       const { roomId } = data;
       await RoomService.leaveRoom(roomId, socket.userId!);
       socket.leave(roomId);
-
-      // Broadcast room update to remaining players
-      const roomDetails = await RoomService.getRoomDetails(roomId);
-      if (roomDetails) {
-        SocketResponse.broadcast(io.to(roomId), roomId, 'room_state_update', roomDetails);
-      }
-      
-      // Broadcast global rooms list update
       SocketResponse.broadcast(io, null, 'rooms_updated', null);
-
-      if (callback) {
-        callback({ success: true });
-      }
+      if (callback) callback({ success: true });
     } catch (error: any) {
-      if (callback) {
-        callback({ success: false, error: error.message });
-      }
+      if (callback) callback({ success: false, error: error.message });
     }
   });
 
-  /**
-   * Updates room metadata (name, maxPlayers).
-   * Only the room owner may edit the room.
-   */
   socket.on('update_room', async (data: unknown, callback) => {
     try {
       const parsed = UpdateRoomDto.parse(data);
@@ -109,21 +81,36 @@ export const setupRoomHandlers = (io: Server, socket: AuthSocket): void => {
     }
   });
 
-  /**
-   * Deletes a room and all associated data.
-   * Only the room owner may delete the room.
-   * All connected players receive a `room_deleted` event.
-   */
   socket.on('delete_room', async (data: unknown, callback) => {
     try {
       const parsed = DeleteRoomDto.parse(data);
       await RoomService.deleteRoom(parsed.roomId, socket.userId!);
-      // Notify all players currently in the room that it has been deleted
       SocketResponse.broadcast(io.to(parsed.roomId), parsed.roomId, 'room_deleted', { roomId: parsed.roomId });
       SocketResponse.broadcast(io, null, 'rooms_updated', null);
       SocketResponse.acknowledge(socket, callback, { success: true });
     } catch (error: any) {
       SocketResponse.acknowledge(socket, callback, { success: false, error: error.message, errorObj: error });
+    }
+  });
+
+  socket.on('start_round', async (data: { roomId: string }, callback) => {
+    try {
+      await RoomService.startRound(data.roomId, socket.userId!);
+      const room = await RoomService.getRoomDetails(data.roomId);
+      SocketResponse.broadcast(io.to(data.roomId), data.roomId, 'round_start', { room });
+      SocketResponse.broadcast(io, null, 'rooms_updated', null);
+      if (callback) callback({ success: true });
+    } catch (error: any) {
+      if (callback) callback({ success: false, error: error.message });
+    }
+  });
+
+  socket.on('get_leaderboard', async (data: { roomId: string }, callback) => {
+    try {
+      const result = await RoomService.getLeaderboard(data.roomId, socket.userId!);
+      if (callback) callback({ success: true, ...result });
+    } catch (error: any) {
+      if (callback) callback({ success: false, error: error.message });
     }
   });
 };

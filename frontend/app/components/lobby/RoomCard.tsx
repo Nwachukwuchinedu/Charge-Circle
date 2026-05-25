@@ -23,8 +23,8 @@ export default function RoomCard({
   onEdit?: (room: Room) => void;
   onDelete?: (roomId: string) => void;
 }) {
-  const playerCount = room.players?.length || 0;
-  const maxPlayers = (room as any).maxPlayers;
+  const playerCount = room.activePlayers ?? 0;
+  const maxPlayers = room.maxPlayers;
   const hasLimit = typeof maxPlayers === 'number' && maxPlayers > 0;
   const isFull = hasLimit && playerCount >= maxPlayers;
 
@@ -62,7 +62,7 @@ export default function RoomCard({
             </button>
           )}
           <Badge
-            variant={room.status === 'playing' ? 'success' : room.status === 'waiting' ? 'warning' : 'neutral'}
+            variant={room.status === 'active' ? 'success' : room.status === 'lobby' ? 'warning' : 'neutral'}
           >
             {room.status}
           </Badge>
@@ -78,7 +78,7 @@ export default function RoomCard({
         </span>
         <span className="flex items-center gap-1">
           <span className="h-1.5 w-1.5 rounded-full bg-zinc-600" />
-          {(room as any).boardSize || 10}&times;{(room as any).boardSize || 10}
+          {room.boardSize || 10}&times;{room.boardSize || 10}
         </span>
       </div>
 

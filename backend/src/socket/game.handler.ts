@@ -10,7 +10,7 @@ import { MovePieceDto } from '../dto/game.dto.js';
  * Registers game-play Socket.io event handlers on the given socket.
  *
  * Events:
- * - `move_piece`: Validates and applies a piece move, then queues a delta broadcast.
+ * - `move_piece`: Validates and applies a per-player piece move, then queues a per-player delta broadcast.
  *
  * @param io - The Socket.io server instance
  * @param socket - The authenticated client socket
@@ -25,12 +25,10 @@ export const setupGameHandlers = (io: Server, socket: AuthSocket): void => {
 
       const result = await GameService.movePiece(parsed.roomId, socket.userId!, parsed.toX, parsed.toY);
 
-      BroadcastService.queueDelta(parsed.roomId, {
+      BroadcastService.queueDelta(parsed.roomId, socket.userId!, {
         piece: { x: result.state.pieceX, y: result.state.pieceY },
         target: { x: result.state.targetX, y: result.state.targetY },
-        activePlayer: (result.state.turnQueue as string[])?.[0] || '',
         score: result.state.score,
-        turnQueue: result.state.turnQueue as string[],
         lastMove: {
           userId: socket.userId!,
           from: result.from,

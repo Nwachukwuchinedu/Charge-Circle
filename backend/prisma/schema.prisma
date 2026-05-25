@@ -14,6 +14,7 @@ model User {
   createdAt    DateTime @default(now()) @map("created_at")
 
   rooms         Room[]
+  gameStates    GameState[]
   chatMessages  ChatMessage[]
   moveHistory   MoveHistory[]
   refreshTokens RefreshToken[]
@@ -36,13 +37,14 @@ model RefreshToken {
 }
 
 model Room {
-  id         String   @id @default(cuid())
+  id         String    @id @default(cuid())
   name       String
-  ownerId    String   @map("owner_id")
-  status     String   @default("waiting")
-  boardSize  Int      @default(10) @map("board_size")
-  maxPlayers Int?     @map("max_players")
-  createdAt  DateTime @default(now()) @map("created_at")
+  ownerId    String    @map("owner_id")
+  status     String    @default("lobby")
+  boardSize  Int       @default(10) @map("board_size")
+  maxPlayers Int?      @map("max_players")
+  roundEndsAt DateTime? @map("round_ends_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
 
   owner        User          @relation(fields: [ownerId], references: [id])
   gameStates   GameState[]
@@ -53,16 +55,18 @@ model Room {
 }
 
 model GameState {
-  roomId    String  @id @map("room_id")
-  pieceX    Int     @default(4) @map("piece_x")
-  pieceY    Int     @default(4) @map("piece_y")
-  targetX   Int     @default(2) @map("target_x")
-  targetY   Int     @default(7) @map("target_y")
-  score     Int     @default(0)
-  turnQueue Json?   @map("turn_queue")
+  roomId  String  @map("room_id")
+  userId  String  @map("user_id")
+  pieceX  Int     @default(4) @map("piece_x")
+  pieceY  Int     @default(4) @map("piece_y")
+  targetX Int     @default(2) @map("target_x")
+  targetY Int     @default(7) @map("target_y")
+  score   Int     @default(0)
 
   room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id])
 
+  @@id([roomId, userId])
   @@map("game_state")
 }
 
