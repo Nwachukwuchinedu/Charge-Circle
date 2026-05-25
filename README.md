@@ -13,25 +13,34 @@ A simultaneous-play grid game where operators navigate Energy Orbs across a shar
 ## Architecture Overview
 
 ```mermaid
-flowchart TB
-    subgraph Frontend["Frontend (Next.js 16)"]
+flowchart LR
+    %% Styles
+    classDef frontend fill:#2d1b69,stroke:#7c3aed,color:#e0e7ff
+    classDef backend fill:#0c4a6e,stroke:#06b6d4,color:#cffafe
+    classDef data fill:#1a1a2e,stroke:#6366f1,color:#e0e7ff
+
+    %% Frontend
+    subgraph Frontend [Frontend – Next.js 16]
         TQ[TanStack Query]
         FM[Framer Motion]
         ZS[Zustand]
         SC[Socket.io Client]
     end
 
-    subgraph Backend["Backend (Express)"]
+    %% Backend
+    subgraph Backend [Backend – Express]
         AS[Auth Service]
         GS[Game Service]
         RS[Room Service]
         SI[Socket.io Server]
     end
 
+    %% Data
     PO[Prisma ORM]
-    PG[("PostgreSQL (Neon)")]
-    RD[("Redis (Upstash)")]
+    PG[(PostgreSQL<br/>Neon)]
+    RD[(Redis<br/>Upstash)]
 
+    %% Connections
     TQ -- "HTTP /api/auth/*" --> AS
     SC == "WebSocket" ==> SI
     SI --> RS
@@ -42,9 +51,7 @@ flowchart TB
     PO --> PG
     SI -. "pub/sub" .-> RD
 
-    classDef frontend fill:#2d1b69,stroke:#7c3aed,color:#e0e7ff
-    classDef backend fill:#0c4a6e,stroke:#06b6d4,color:#cffafe
-    classDef data fill:#1a1a2e,stroke:#6366f1,color:#e0e7ff
+    %% Apply classes
     class TQ,FM,ZS,SC frontend
     class AS,GS,RS,SI backend
     class PO,PG,RD data
