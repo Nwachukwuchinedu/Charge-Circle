@@ -12,21 +12,26 @@ function clearStorage() {
   localStorage.removeItem(USER_KEY);
 }
 
+function getStoredUser(): User | null {
+  if (typeof window === 'undefined') return null;
+  const storedUser = localStorage.getItem(USER_KEY);
+  const accessToken = localStorage.getItem(ACCESS_KEY);
+  if (storedUser && accessToken) {
+    try {
+      return JSON.parse(storedUser) as User;
+    } catch {
+      clearStorage();
+    }
+  }
+  return null;
+}
+
 export function useAuth() {
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<User | null>(getStoredUser);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem(USER_KEY);
-    const accessToken = localStorage.getItem(ACCESS_KEY);
-
-    if (storedUser && accessToken) {
-      try {
-        setUser(JSON.parse(storedUser) as User);
-      } catch {
-        clearStorage();
-      }
-    }
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setLoading(false);
   }, []);
 
