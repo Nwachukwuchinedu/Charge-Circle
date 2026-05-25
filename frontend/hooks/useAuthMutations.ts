@@ -10,14 +10,21 @@ interface AuthInput {
   nickname?: string;
 }
 
+interface ApiResponseWrapper<T> {
+  success: boolean;
+  message: string;
+  data: T;
+}
+
 export function useSignupMutation() {
   const router = useRouter();
   const { login } = useAuth();
 
   return useMutation({
     mutationFn: (data: AuthInput) => api.post('/auth/signup', data),
-    onSuccess: (response: AuthResponse) => {
-      login(response.accessToken, response.refreshToken, response.user);
+    onSuccess: (response: ApiResponseWrapper<AuthResponse>) => {
+      const authData = response.data;
+      login(authData.accessToken, authData.refreshToken, authData.user);
       router.push('/lobby');
     },
   });
@@ -29,8 +36,9 @@ export function useLoginMutation() {
 
   return useMutation({
     mutationFn: (data: AuthInput) => api.post('/auth/login', data),
-    onSuccess: (response: AuthResponse) => {
-      login(response.accessToken, response.refreshToken, response.user);
+    onSuccess: (response: ApiResponseWrapper<AuthResponse>) => {
+      const authData = response.data;
+      login(authData.accessToken, authData.refreshToken, authData.user);
       router.push('/lobby');
     },
   });
