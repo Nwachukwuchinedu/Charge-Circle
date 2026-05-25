@@ -2,6 +2,8 @@
 
 **Real-Time Multiplayer Collaborative Grid Game**
 
+> **Live**: [charge-circle-frontend.onrender.com](https://charge-circle-frontend.onrender.com) — create an account, join a room, start a round.
+
 A simultaneous-play grid game where operators navigate Energy Orbs across a shared board to charge the circle. Built with reactive architecture — every player moves independently, sees their own targets and scores in real time, and competes on a live leaderboard.
 
 > No turn queue. No waiting. Every move counts instantly.
@@ -426,6 +428,7 @@ frontend/
 │   ├── api.ts                 # HTTP client with auto-refresh on 401
 │   ├── queryClient.ts         # TanStack Query client config
 │   └── validations.ts         # Zod schemas (login, signup, createRoom)
+├── .env.example               # Environment variable template
 ├── Dockerfile                 # Multi-stage (standalone output)
 ├── next.config.ts             # output: 'standalone'
 ├── tsconfig.json
@@ -630,6 +633,10 @@ docker compose up --build
 
 Both services deploy via Docker runtime with auto-deploy from `main`.
 
+**Live deployment**:
+- **Frontend**: [charge-circle-frontend.onrender.com](https://charge-circle-frontend.onrender.com)
+- **Backend**: [charge-circle-backend.onrender.com](https://charge-circle-backend.onrender.com) (`GET /health`)
+
 **Backend**:
 - Runtime: Docker
 - Build: `backend/Dockerfile`
@@ -639,8 +646,8 @@ Both services deploy via Docker runtime with auto-deploy from `main`.
 **Frontend**:
 - Runtime: Docker
 - Build: `frontend/Dockerfile` with build args:
-  - `NEXT_PUBLIC_API_URL=https://your-backend.onrender.com/api`
-  - `NEXT_PUBLIC_SOCKET_URL=https://your-backend.onrender.com`
+  - `NEXT_PUBLIC_API_URL=https://charge-circle-backend.onrender.com/api`
+  - `NEXT_PUBLIC_SOCKET_URL=https://charge-circle-backend.onrender.com`
 - Output: Next.js standalone (single server.js)
 
 **Auto-deploy**: Push to `main` triggers webhook to Render.
