@@ -1,7 +1,7 @@
 import { Server } from 'socket.io';
 import { AuthSocket } from './auth.socket.js';
 import { RoomService } from '../services/room.service.js';
-import { SocketResponse } from '../utils/socketResponse.js';
+import { SocketResponse } from '../utils/socket.response.js';
 import { CreateRoomDto, JoinRoomDto, UpdateRoomDto, DeleteRoomDto, RoomIdDto } from '../dto/room.dto.js';
 
 /**

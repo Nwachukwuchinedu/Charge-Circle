@@ -5,8 +5,8 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 
-import { setupRedis } from './utils/redis.js';
-import { startDbKeepalive, stopDbKeepalive } from './utils/prisma.js';
+import { setupRedis, pubClient, subClient } from './utils/redis.js';
+import { startDbKeepalive, stopDbKeepalive, prisma } from './utils/prisma.js';
 import { BroadcastService } from './services/broadcast.service.js';
 import { RoomService } from './services/room.service.js';
 import { logger } from './utils/logger.js';
@@ -15,6 +15,13 @@ import { setupRoomHandlers } from './socket/room.handler.js';
 import { setupGameHandlers } from './socket/game.handler.js';
 import { setupChatHandlers } from './socket/chat.handler.js';
 import authRoutes from './routes/auth.routes.js';
+import { ApiResponse } from './utils/api.response.js';
+
+// ── Startup validation ──────────────────────────────────────────────────────
+if (!process.env.JWT_ACCESS_SECRET && !process.env.JWT_SECRET) {
+  logger.error('[Startup] JWT_ACCESS_SECRET (or JWT_SECRET) is required. Set it in .env or Render Dashboard.');
+  process.exit(1);
+}
 
 const app = express();
 const httpServer = createServer(app);
@@ -34,8 +41,20 @@ const io = new Server(httpServer, {
   cors: { origin: '*', methods: ['GET', 'POST'] },
 });
 
+// ── Health check ────────────────────────────────────────────────────────────
+app.get('/health', (_req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+// ── Routes ──────────────────────────────────────────────────────────────────
 app.use('/api/auth', authRoutes);
 
+// ── Global error handler ────────────────────────────────────────────────────
+app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+  ApiResponse.error(res, err.message || 'Internal server error', err, err.statusCode || 500);
+});
+
+// ── Redis + Socket.io ───────────────────────────────────────────────────────
 try {
   await setupRedis(io);
 } catch (err) {
@@ -59,7 +78,7 @@ io.on('connection', (socket) => {
     for (const roomId of socket.rooms) {
       if (roomId !== socket.id) {
         RoomService.leaveRoom(roomId, authedSocket.userId!).catch((err) =>
-          logger.error(`[Disconnect] Failed to leave room ${roomId}:`, err.message),
+          logger.error(`[Disconnect] Failed to leave room ${roomId}:`, { error: err.message }),
         );
       }
     }
@@ -79,9 +98,15 @@ httpServer.listen(PORT, () => {
 // ── Graceful shutdown ───────────────────────────────────────────────────────
 const shutdown = (signal: string) => {
   logger.info(`[Shutdown] Received ${signal}. Closing servers...`);
+  const closeRedis = async () => {
+    if (pubClient) await pubClient.quit();
+    if (subClient) await subClient.quit();
+  };
   io.close(() => {
-    httpServer.close(() => {
+    httpServer.close(async () => {
       stopDbKeepalive();
+      await prisma.$disconnect();
+      await closeRedis();
       logger.info('[Shutdown] All connections closed. Goodbye.');
       process.exit(0);
     });

@@ -2,7 +2,7 @@ import { Server } from 'socket.io';
 import { AuthSocket } from './auth.socket.js';
 import { ChatService } from '../services/chat.service.js';
 import { throttleSocket } from '../utils/throttle.js';
-import { SocketResponse } from '../utils/socketResponse.js';
+import { SocketResponse } from '../utils/socket.response.js';
 import { logger } from '../utils/logger.js';
 import { SendChatDto } from '../dto/chat.dto.js';
 

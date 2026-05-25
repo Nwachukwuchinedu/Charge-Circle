@@ -3,7 +3,7 @@ import { AuthSocket } from './auth.socket.js';
 import { GameService } from '../services/game.service.js';
 import { throttleSocket } from '../utils/throttle.js';
 import { BroadcastService } from '../services/broadcast.service.js';
-import { SocketResponse } from '../utils/socketResponse.js';
+import { SocketResponse } from '../utils/socket.response.js';
 import { MovePieceDto } from '../dto/game.dto.js';
 
 /**

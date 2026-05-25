@@ -1,5 +1,5 @@
 import { Server } from 'socket.io';
-import { SocketResponse } from '../utils/socketResponse.js';
+import { SocketResponse } from '../utils/socket.response.js';
 import { GameStateDelta } from '../types/game.types.js';
 import { prisma } from '../utils/prisma.js';
 import { logger } from '../utils/logger.js';

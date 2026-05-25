@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken } from '../utils/jwt.js';
-import { ApiResponse } from '../utils/apiResponse.js';
+import { ApiResponse } from '../utils/api.response.js';
 
 /** Express request extended with the authenticated user's ID. */
 export interface AuthRequest extends Request {

@@ -12,7 +12,7 @@ const customFormat = winston.format.printf(({ level, message, timestamp, ...meta
 
 const transports: winston.transport[] = [
   new winston.transports.Console({
-    level: isProduction ? 'error' : 'debug',
+    level: isProduction ? 'warn' : 'debug',
     format: winston.format.combine(
       winston.format.colorize(),
       winston.format.simple(),

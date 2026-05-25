@@ -11,7 +11,7 @@ export type SignupDto = z.infer<typeof SignupDto>;
 
 export const LoginDto = z.object({
   email: z.string().transform((v) => v.toLowerCase().trim()),
-  password: z.string(),
+  password: z.string().min(1),
 });
 export type LoginDto = z.infer<typeof LoginDto>;
 

@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodSchema, ZodError } from 'zod';
-import { ApiResponse } from '../utils/apiResponse.js';
+import { ApiResponse } from '../utils/api.response.js';
 
 /**
  * Express middleware factory that validates the request body against a Zod schema.

@@ -15,7 +15,13 @@ export default [
     rules: {
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
       '@typescript-eslint/no-explicit-any': 'warn',
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/no-misused-promises': 'error',
+      '@typescript-eslint/require-await': 'warn',
       'no-console': 'warn',
+      'prefer-const': 'error',
+      eqeqeq: ['error', 'always'],
+      'no-throw-literal': 'error',
     },
   },
 ];
