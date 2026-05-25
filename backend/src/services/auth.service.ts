@@ -169,7 +169,7 @@ export class AuthService {
    * @param userId - The user to fetch data for
    * @returns User object with id, email, nickname, and totalScore
    */
-  private static async getUserData(userId: string): Promise<AuthResult['user']> {
+  static async getUserData(userId: string): Promise<AuthResult['user']> {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: { id: true, email: true, nickname: true, totalScore: true },

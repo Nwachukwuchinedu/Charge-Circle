@@ -81,6 +81,14 @@ function GameContent() {
     onError: handleError,
   });
 
+  const handleMove = useCallback((newX: number, newY: number) => {
+    setGameState((prev) => {
+      if (!prev) return prev;
+      return { ...prev, pieceX: newX, pieceY: newY };
+    });
+    emitMove(newX, newY);
+  }, [emitMove]);
+
   if (!roomId) return <div className="text-white p-8">No Room ID provided. Join from the Lobby.</div>;
   if (!user || !gameState || !room) return <LoadingSpinner text="Synchronizing Grid State..." fullScreen />;
 
@@ -155,7 +163,7 @@ function GameContent() {
             target={{ x: gameState.targetX, y: gameState.targetY }}
             boardSize={room.boardSize}
             myTurn={isActive}
-            onMove={emitMove}
+            onMove={handleMove}
           />
 
           {/* Floating controls */}

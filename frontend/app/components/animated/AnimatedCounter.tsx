@@ -10,14 +10,14 @@ interface AnimatedCounterProps {
 }
 
 export default function AnimatedCounter({ value, suffix = '', duration = 800, ease = true }: AnimatedCounterProps) {
-  const [display, setDisplay] = useState(0);
-  const startRef = useRef(0);
+  const [display, setDisplay] = useState(value);
+  const prevRef = useRef(value);
   const rafRef = useRef<number | undefined>(undefined);
 
   useEffect(() => {
-    const start = startRef.current;
-    startRef.current = value;
+    const start = prevRef.current;
     const diff = value - start;
+    prevRef.current = value;
     if (diff === 0) return;
     const startTime = performance.now();
     const tick = (now: number) => {

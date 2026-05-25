@@ -122,8 +122,7 @@ export default function GameGrid({ piece, target, boardSize = 10, myTurn, onMove
       const tPx = piece.x * tileSize + half;
       const tPy = piece.y * tileSize + half;
 
-      animatedPiecePos.current.x += (tPx - animatedPiecePos.current.x) * 0.12;
-      animatedPiecePos.current.y += (tPy - animatedPiecePos.current.y) * 0.12;
+      animatedPiecePos.current = { x: tPx, y: tPy };
 
       ctx.shadowColor = 'rgba(0, 0, 0, 0.6)';
       ctx.shadowBlur = 8;

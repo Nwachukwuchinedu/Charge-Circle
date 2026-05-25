@@ -37,4 +37,10 @@ router.post('/logout', validate(LogoutDto), AuthController.logout);
  */
 router.post('/logout-all', requireAuth, AuthController.logoutAll);
 
+/**
+ * GET /api/auth/me
+ * Returns the authenticated user's profile including totalScore.
+ */
+router.get('/me', requireAuth, AuthController.me);
+
 export default router;

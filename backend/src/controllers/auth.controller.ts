@@ -80,4 +80,17 @@ export class AuthController {
       ApiResponse.error(res, error.message, error);
     }
   }
+
+  /**
+   * GET /api/auth/me
+   * Returns the authenticated user's profile data including totalScore.
+   */
+  static async me(req: AuthRequest, res: Response): Promise<void> {
+    try {
+      const user = await AuthService.getUserData(req.userId!);
+      ApiResponse.success(res, 'User fetched', { user });
+    } catch (error: any) {
+      ApiResponse.error(res, error.message, error);
+    }
+  }
 }

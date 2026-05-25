@@ -19,7 +19,9 @@ function getStoredUser(): User | null {
   const accessToken = localStorage.getItem(ACCESS_KEY);
   if (storedUser && accessToken) {
     try {
-      return JSON.parse(storedUser) as User;
+      const parsed = JSON.parse(storedUser);
+      if (typeof parsed.totalScore !== 'number') parsed.totalScore = 0;
+      return parsed as User;
     } catch {
       clearStorage();
     }
@@ -30,6 +32,21 @@ function getStoredUser(): User | null {
 export function useAuth() {
   const [user, setUser] = useState<User | null>(getStoredUser);
   const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const accessToken = localStorage.getItem(ACCESS_KEY);
+    if (accessToken) {
+      api.get('/auth/me').then((res) => {
+        const freshUser = res.data?.user;
+        if (freshUser) {
+          localStorage.setItem(USER_KEY, JSON.stringify(freshUser));
+          setUser(freshUser);
+        }
+      }).catch(() => {
+        // Token might be expired — silent fail, login page will redirect
+      });
+    }
+  }, []);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -63,6 +80,10 @@ export function useAuth() {
       const res = await api.post('/auth/refresh', { refreshToken: token });
       localStorage.setItem(ACCESS_KEY, res.data.accessToken);
       localStorage.setItem(REFRESH_KEY, res.data.refreshToken);
+      if (res.data.data?.user) {
+        localStorage.setItem(USER_KEY, JSON.stringify(res.data.data.user));
+        setUser(res.data.data.user);
+      }
       return res.data.accessToken;
     } catch {
       clearStorage();
