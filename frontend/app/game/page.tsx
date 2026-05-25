@@ -1,15 +1,16 @@
 'use client';
 
-import React, { useEffect, useState, Suspense, useRef } from 'react';
+import React, { useEffect, useState, Suspense, useCallback } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { useSocket } from '../../hooks/useSocket';
 import { useAuth } from '../../hooks/useAuth';
+import { useGameSocket } from '../../hooks/useGameSocket';
 import GameGrid from '../components/game/GameGrid';
 import Leaderboard from '../components/game/Leaderboard';
 import RoundTimer from '../components/game/RoundTimer';
 import ChatPanel from '../components/ChatPanel';
 import { HUDToggle, HUDDrawer } from '../components/game/HUDOverlay';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
+import { LoadingSpinner } from '../components/ui';
 import { GameState, Room, GameStateDelta, ChatMessage, LeaderboardEntry } from '../types';
 import { useUIStore } from '../stores/ui.store';
 import { Play, MessageSquare, LogOut, Zap, LayoutGrid } from 'lucide-react';
@@ -29,122 +30,61 @@ function GameContent() {
   const [unreadCount, setUnreadCount] = useState(0);
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([]);
   const [leaderboardOpen, setLeaderboardOpen] = useState(true);
-  const chatOpen = useUIStore((s) => s.chatOpen);
-  const joinedOnce = useRef(false);
-
-  useEffect(() => {
-    if (chatOpen) setUnreadCount(0);
-  }, [chatOpen]);
 
   useEffect(() => {
     if (!loading && !user) router.push('/login');
   }, [user, loading, router]);
 
-  useEffect(() => {
-    if (socket && connected && roomId && !joinedOnce.current) {
-      joinedOnce.current = true;
+  const handleRoomUpdate = useCallback((updatedRoom: Room, myGs?: GameState, messages?: ChatMessage[]) => {
+    setRoom(updatedRoom);
+    if (myGs) setGameState(myGs);
+    if (messages) setChatMessages(messages);
+  }, []);
 
-      socket.emit('join_room', { roomId }, (response: any) => {
-        if (!response.success) { setErrorText(response.error); return; }
-        setRoom(response.room);
-        const myGs = response.room.gameStates?.find(
-          (gs: GameState) => gs.userId === user?.id,
-        );
-        if (myGs) setGameState(myGs);
-        if (response.room.chatMessages) setChatMessages(response.room.chatMessages);
-      });
-
-      const playerDeltaEvent = `player_delta:${user?.id}`;
-
-      socket.on('room_state_update', (updatedRoom: Room) => {
-        setRoom(updatedRoom);
-        const myGs = updatedRoom.gameStates?.find(
-          (gs: GameState) => gs.userId === user?.id,
-        );
-        if (myGs) setGameState(myGs);
-        if (updatedRoom.chatMessages) setChatMessages(updatedRoom.chatMessages);
-      });
-
-      socket.on(playerDeltaEvent, (delta: GameStateDelta) => {
-        setGameState((prev) => {
-          if (!prev) return null;
-          return {
-            ...prev,
-            pieceX: delta.piece?.x ?? prev.pieceX,
-            pieceY: delta.piece?.y ?? prev.pieceY,
-            targetX: delta.target?.x ?? prev.targetX,
-            targetY: delta.target?.y ?? prev.targetY,
-            score: delta.score ?? prev.score,
-          };
-        });
-      });
-
-      socket.on('chat_message', (msg: ChatMessage) => {
-        setChatMessages((prev) => [...prev, msg]);
-        if (!useUIStore.getState().chatOpen) {
-          setUnreadCount((prev) => prev + 1);
-        }
-      });
-
-      socket.on('leaderboard_update', (data: { leaderboard: LeaderboardEntry[] }) => {
-        setLeaderboard(data.leaderboard);
-      });
-
-      socket.on('round_start', (data: { room: Room }) => {
-        setRoom(data.room);
-        const myGs = data.room.gameStates?.find(
-          (gs: GameState) => gs.userId === user?.id,
-        );
-        if (myGs) setGameState(myGs);
-      });
-
-      socket.on('round_end', () => {
-        setRoom((prev) => prev ? { ...prev, status: 'lobby' } : null);
-      });
-
-      socket.on('game_error', (data: { message: string }) => {
-        setErrorText(data.message);
-        setTimeout(() => setErrorText(null), 4000);
-      });
-
-      socket.on('room_deleted', (data: { roomId: string }) => {
-        if (data.roomId === roomId) router.push('/lobby');
-      });
-
-      return () => {
-        socket.off('room_state_update');
-        socket.off(playerDeltaEvent);
-        socket.off('chat_message');
-        socket.off('leaderboard_update');
-        socket.off('round_start');
-        socket.off('round_end');
-        socket.off('game_error');
-        socket.off('room_deleted');
+  const handleGameStateDelta = useCallback((delta: GameStateDelta) => {
+    setGameState((prev) => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        pieceX: delta.piece?.x ?? prev.pieceX,
+        pieceY: delta.piece?.y ?? prev.pieceY,
+        targetX: delta.target?.x ?? prev.targetX,
+        targetY: delta.target?.y ?? prev.targetY,
+        score: delta.score ?? prev.score,
       };
+    });
+  }, []);
+
+  const handleChatMessage = useCallback((msg: ChatMessage) => {
+    setChatMessages((prev) => [...prev, msg]);
+    if (!useUIStore.getState().chatOpen) {
+      setUnreadCount((prev) => prev + 1);
     }
-  }, [socket, connected, roomId, user?.id]);
+  }, []);
+
+  const handleLeaderboard = useCallback((entries: LeaderboardEntry[]) => {
+    setLeaderboard(entries);
+  }, []);
+
+  const handleError = useCallback((message: string) => {
+    setErrorText(message);
+    setTimeout(() => setErrorText(null), 4000);
+  }, []);
+
+  const { emitMove, emitLeaveRoom, emitStartRound } = useGameSocket({
+    socket,
+    connected,
+    roomId,
+    userId: user?.id,
+    onRoomUpdate: handleRoomUpdate,
+    onGameStateDelta: handleGameStateDelta,
+    onChatMessage: handleChatMessage,
+    onLeaderboard: handleLeaderboard,
+    onError: handleError,
+  });
 
   if (!roomId) return <div className="text-white p-8">No Room ID provided. Join from the Lobby.</div>;
   if (!user || !gameState || !room) return <LoadingSpinner text="Synchronizing Grid State..." fullScreen />;
-
-  const handleMove = (newX: number, newY: number) => {
-    if (socket && connected) socket.emit('move_piece', { roomId, toX: newX, toY: newY });
-  };
-
-  const handleLeaveRoom = () => {
-    if (socket && connected && roomId) {
-      socket.emit('leave_room', { roomId }, () => router.push('/lobby'));
-    } else {
-      router.push('/lobby');
-    }
-  };
-
-  const handleStartRound = () => {
-    if (!socket || !connected) return;
-    socket.emit('start_round', { roomId }, (response: any) => {
-      if (!response.success) setErrorText(response.error);
-    });
-  };
 
   const isActive = room.status === 'active';
 
@@ -157,7 +97,7 @@ function GameContent() {
       <header className="relative z-30 flex items-center justify-between px-4 py-2.5 border-b border-zinc-900/60 bg-[#060709]/80 backdrop-blur-md shrink-0">
         <div className="flex items-center gap-3">
           <button
-            onClick={handleLeaveRoom}
+            onClick={emitLeaveRoom}
             className="flex items-center gap-1.5 text-xs text-rose-400 hover:text-rose-300 bg-rose-950/20 hover:bg-rose-900/20 border border-rose-900/30 px-3 py-1.5 rounded-lg cursor-pointer transition-all"
           >
             <LogOut size={14} className="rotate-180" /> Leave
@@ -172,7 +112,7 @@ function GameContent() {
             </span>
             {!isActive && room.ownerId === user.id && (
               <button
-                onClick={handleStartRound}
+                onClick={emitStartRound}
                 className="ml-2 flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 bg-emerald-950/20 hover:bg-emerald-900/20 border border-emerald-900/30 px-2.5 py-1 rounded-lg cursor-pointer transition-all"
               >
                 <Play size={12} /> Start Round
@@ -223,15 +163,15 @@ function GameContent() {
             target={{ x: gameState.targetX, y: gameState.targetY }}
             boardSize={room.boardSize}
             myTurn={isActive}
-            onMove={handleMove}
+            onMove={emitMove}
           />
 
           {/* Floating controls */}
           <div className="absolute bottom-4 right-4 flex items-center gap-2 z-30">
-            <HUDToggle side="chat" label="Chat" icon={<MessageSquare size={16} />} count={unreadCount > 0 ? unreadCount : undefined} />
+            <HUDToggle label="Chat" icon={<MessageSquare size={16} />} count={unreadCount > 0 ? unreadCount : undefined} />
           </div>
 
-          <HUDDrawer side="chat" title="Comms Channel" icon={<MessageSquare size={16} />}>
+          <HUDDrawer title="Comms Channel" icon={<MessageSquare size={16} />}>
             <ChatPanel roomId={roomId} socket={socket} messages={chatMessages} />
           </HUDDrawer>
         </div>

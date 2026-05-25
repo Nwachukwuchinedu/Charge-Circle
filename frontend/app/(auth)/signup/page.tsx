@@ -1,29 +1,20 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { api } from '../../../lib/api';
-import { useAuth } from '../../../hooks/useAuth';
 import { useForm } from '../../../hooks/useForm';
+import { useSignupMutation } from '../../../hooks/useAuthMutations';
 import { signupSchema } from '../../../lib/validations';
 import AuthFormCard from '../../components/layout/AuthFormCard';
-import Input from '../../components/ui/Input';
-import Button from '../../components/ui/Button';
+import { Input, Button } from '../../components/ui';
 
 export default function Signup() {
-  const router = useRouter();
-  const { login } = useAuth();
-  const [serverError, setServerError] = useState('');
+  const signupMutation = useSignupMutation();
 
   const { values, errors, isSubmitting, handleChange, handleSubmit } = useForm({
     initial: { nickname: '', email: '', password: '' },
     schema: signupSchema,
-    onSubmit: async (data) => {
-      setServerError('');
-      const response = await api.post('/auth/signup', data);
-      login(response.data.accessToken, response.data.refreshToken, response.data.user);
-      router.push('/lobby');
+    onSubmit: (data) => {
+      signupMutation.mutate(data);
     },
   });
 
@@ -34,13 +25,13 @@ export default function Signup() {
       gradient="emerald"
       footer={{ text: "Already an operator?", linkText: "Login", href: "/login" }}
     >
-      {serverError && (
+      {signupMutation.error && (
         <motion.div
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
           className="mb-4 p-3 bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-xl text-sm"
         >
-          {serverError}
+          {(signupMutation.error as Error).message || 'Signup failed'}
         </motion.div>
       )}
 
@@ -69,7 +60,7 @@ export default function Signup() {
           onChange={(e) => handleChange('password', e.target.value)}
           error={errors.password}
         />
-        <Button type="submit" variant="emerald" isLoading={isSubmitting} className="mt-2 w-full">
+        <Button type="submit" variant="emerald" isLoading={isSubmitting || signupMutation.isPending} className="mt-2 w-full">
           Initialize Node
         </Button>
       </form>

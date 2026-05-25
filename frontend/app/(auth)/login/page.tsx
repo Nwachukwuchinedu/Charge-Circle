@@ -1,29 +1,20 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { api } from '../../../lib/api';
-import { useAuth } from '../../../hooks/useAuth';
 import { useForm } from '../../../hooks/useForm';
+import { useLoginMutation } from '../../../hooks/useAuthMutations';
 import { loginSchema } from '../../../lib/validations';
 import AuthFormCard from '../../components/layout/AuthFormCard';
-import Input from '../../components/ui/Input';
-import Button from '../../components/ui/Button';
+import { Input, Button } from '../../components/ui';
 
 export default function Login() {
-  const router = useRouter();
-  const { login } = useAuth();
-  const [serverError, setServerError] = useState('');
+  const loginMutation = useLoginMutation();
 
   const { values, errors, isSubmitting, handleChange, handleSubmit } = useForm({
     initial: { email: '', password: '' },
     schema: loginSchema,
-    onSubmit: async (data) => {
-      setServerError('');
-      const response = await api.post('/auth/login', data);
-      login(response.data.accessToken, response.data.refreshToken, response.data.user);
-      router.push('/lobby');
+    onSubmit: (data) => {
+      loginMutation.mutate(data);
     },
   });
 
@@ -33,13 +24,13 @@ export default function Login() {
       subtitle="Connect to the Charge Circle grid"
       footer={{ text: "No operator account?", linkText: "Register", href: "/signup" }}
     >
-      {serverError && (
+      {loginMutation.error && (
         <motion.div
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
           className="mb-4 p-3 bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-xl text-sm"
         >
-          {serverError}
+          {(loginMutation.error as Error).message || 'Login failed'}
         </motion.div>
       )}
 
@@ -60,7 +51,7 @@ export default function Login() {
           onChange={(e) => handleChange('password', e.target.value)}
           error={errors.password}
         />
-        <Button type="submit" isLoading={isSubmitting} className="mt-2 w-full">
+        <Button type="submit" isLoading={isSubmitting || loginMutation.isPending} className="mt-2 w-full">
           Connect to Grid
         </Button>
       </form>

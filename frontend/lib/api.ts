@@ -33,7 +33,7 @@ async function refreshAndRetry(url: string, options: RequestInit): Promise<Respo
 }
 
 export const api = {
-  async post(endpoint: string, body: any) {
+  async post(endpoint: string, body: Record<string, unknown>) {
     const token = getToken();
     const headers: Record<string, string> = { 'Content-Type': 'application/json' };
     if (token) headers['Authorization'] = `Bearer ${token}`;

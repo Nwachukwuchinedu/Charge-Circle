@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Socket } from 'socket.io-client';
 import { useAuth } from '../../hooks/useAuth';
+import { useChatSocket } from '../../hooks/useChatSocket';
 import { ChatMessage } from '../types';
 import { Send } from 'lucide-react';
 import Input from './ui/Input';
@@ -10,6 +11,7 @@ import Button from './ui/Button';
 
 export default function ChatPanel({ roomId, socket, messages }: { roomId: string, socket: Socket | null, messages: ChatMessage[] }) {
   const { user } = useAuth();
+  const { sendMessage } = useChatSocket(socket);
   const [input, setInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -19,9 +21,9 @@ export default function ChatPanel({ roomId, socket, messages }: { roomId: string
 
   const handleSend = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || !socket) return;
+    if (!input.trim()) return;
 
-    socket.emit('send_chat', { roomId, message: input });
+    sendMessage(roomId, input);
     setInput('');
   };
 

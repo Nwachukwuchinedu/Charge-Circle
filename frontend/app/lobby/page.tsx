@@ -1,13 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../hooks/useAuth';
 import { useSocket } from '../../hooks/useSocket';
 import { useRoomList } from '../../hooks/useRoomList';
-import ConnectionBadge from '../components/ui/ConnectionBadge';
-import LoadingSpinner from '../components/ui/LoadingSpinner';
-import Logo from '../components/ui/Logo';
+import { useRoomOperations } from '../../hooks/useRoomOperations';
+import { ConnectionBadge, LoadingSpinner, Logo } from '../components/ui';
 import StatStrip from '../components/lobby/StatStrip';
 import type { StatItem } from '../components/lobby/StatStrip';
 import RoomCard from '../components/lobby/RoomCard';
@@ -22,6 +21,7 @@ export default function Lobby() {
   const router = useRouter();
 
   const { data: rooms = [], isLoading: isLoadingRooms } = useRoomList(socket, connected);
+  const { createRoom, joinRoom, updateRoom, deleteRoom } = useRoomOperations(socket);
   const [joiningRoomId, setJoiningRoomId] = useState<string | null>(null);
   const [editingRoom, setEditingRoom] = useState<Room | null>(null);
 
@@ -29,59 +29,27 @@ export default function Lobby() {
     if (!loading && !user) router.push('/login');
   }, [user, loading, router]);
 
-  const handleCreateRoom = (name: string, maxPlayers: number | null) => {
-    if (!socket) return;
-    socket.emit('create_room', { name, maxPlayers }, (response: any) => {
-      if (response.success) {
-        router.push(`/game?roomId=${response.room.id}`);
-      } else {
-        alert(response.error || 'Failed to create room');
-      }
-    });
-  };
+  const handleCreateRoom = useCallback((name: string, maxPlayers: number | null) => {
+    createRoom({ name, maxPlayers });
+  }, [createRoom]);
 
-  const handleJoinRoom = (roomId: string) => {
-    if (!socket) return;
+  const handleJoinRoom = useCallback((roomId: string) => {
     setJoiningRoomId(roomId);
-    socket.emit('join_room', { roomId }, (response: any) => {
-      if (response.success) {
-        router.push(`/game?roomId=${roomId}`);
-      } else {
-        alert(response.error || 'Failed to join room');
-        setJoiningRoomId(null);
-      }
-    });
-  };
+    joinRoom(roomId);
+  }, [joinRoom]);
 
-  const handleEditRoom = (
+  const handleEditRoom = useCallback((
     roomId: string,
     name: string,
     maxPlayers: number | null,
-    callback?: (success: boolean) => void,
   ) => {
-    if (!socket) {
-      if (callback) callback(false);
-      return;
-    }
-    socket.emit('update_room', { roomId, name, maxPlayers }, (response: any) => {
-      if (response.success) {
-        setEditingRoom(null);
-        if (callback) callback(true);
-      } else {
-        alert(response.error || 'Failed to update room');
-        if (callback) callback(false);
-      }
-    });
-  };
+    updateRoom({ roomId, name, maxPlayers });
+    setEditingRoom(null);
+  }, [updateRoom]);
 
-  const handleDeleteRoom = (roomId: string) => {
-    if (!socket) return;
-    socket.emit('delete_room', { roomId }, (response: any) => {
-      if (!response.success) {
-        alert(response.error || 'Failed to delete room');
-      }
-    });
-  };
+  const handleDeleteRoom = useCallback((roomId: string) => {
+    deleteRoom(roomId);
+  }, [deleteRoom]);
 
   if (loading || !user) {
     return <LoadingSpinner text="Initializing Node Authentication..." fullScreen />;

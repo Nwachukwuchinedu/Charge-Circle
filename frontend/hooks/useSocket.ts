@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { setRefreshFn } from '../lib/api';
 import { useAuth } from './useAuth';
@@ -7,8 +7,10 @@ export function useSocket() {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [connected, setConnected] = useState(false);
   const { refreshTokens } = useAuth();
+  const refreshTokensRef = useRef(refreshTokens);
 
   useEffect(() => {
+    refreshTokensRef.current = refreshTokens;
     setRefreshFn(refreshTokens);
   }, [refreshTokens]);
 
@@ -41,7 +43,7 @@ export function useSocket() {
       console.error('Socket connect error:', err.message);
 
       if (err.message.includes('Authentication') || err.message.includes('token')) {
-        const newToken = await refreshTokens();
+        const newToken = await refreshTokensRef.current();
         if (newToken) {
           socketClient.auth = { token: newToken };
           socketClient.connect();

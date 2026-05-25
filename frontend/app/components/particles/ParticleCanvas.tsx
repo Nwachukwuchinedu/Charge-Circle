@@ -39,13 +39,13 @@ export default function ParticleCanvas({
     resize();
     window.addEventListener('resize', resize);
 
+    let onMouse: ((e: MouseEvent) => void) | null = null;
     if (mouseInteraction) {
-      const onMouse = (e: MouseEvent) => {
+      onMouse = (e: MouseEvent) => {
         mouseX = e.clientX;
         mouseY = e.clientY;
       };
       window.addEventListener('mousemove', onMouse);
-      // cleanup will handle this
     }
 
     const particles: { x: number; y: number; vx: number; vy: number; r: number }[] = [];
@@ -148,8 +148,8 @@ export default function ParticleCanvas({
     return () => {
       cancelAnimationFrame(animId);
       window.removeEventListener('resize', resize);
-      if (mouseInteraction) {
-        window.removeEventListener('mousemove', () => {});
+      if (mouseInteraction && onMouse) {
+        window.removeEventListener('mousemove', onMouse);
       }
     };
   }, [particleCount, color, mouseInteraction, gridLines, pulse]);

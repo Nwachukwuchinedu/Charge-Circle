@@ -11,8 +11,8 @@ export function useRoomList(socket: Socket | null, connected: boolean) {
     queryFn: () => {
       if (!socket || !connected) return Promise.reject('No socket');
       return new Promise<Room[]>((resolve, reject) => {
-        socket.emit('get_rooms', {}, (response: any) => {
-          if (response && response.rooms) resolve(response.rooms);
+        socket.emit('get_rooms', {}, (response: { success: boolean; rooms?: Room[]; error?: string }) => {
+          if (response?.rooms) resolve(response.rooms);
           else reject(response?.error || 'Failed to get rooms');
         });
       });

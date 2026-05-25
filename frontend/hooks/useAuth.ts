@@ -1,10 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { User } from '../app/types';
 import { api } from '../lib/api';
 
 const ACCESS_KEY = 'accessToken';
 const REFRESH_KEY = 'refreshToken';
 const USER_KEY = 'user';
+
+function clearStorage() {
+  localStorage.removeItem(ACCESS_KEY);
+  localStorage.removeItem(REFRESH_KEY);
+  localStorage.removeItem(USER_KEY);
+}
 
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null);
@@ -16,8 +22,7 @@ export function useAuth() {
 
     if (storedUser && accessToken) {
       try {
-        const parsed = JSON.parse(storedUser);
-        setUser(parsed);
+        setUser(JSON.parse(storedUser) as User);
       } catch {
         clearStorage();
       }
@@ -25,31 +30,31 @@ export function useAuth() {
     setLoading(false);
   }, []);
 
-  const login = (accessToken: string, refreshToken: string, userData: User) => {
+  const login = useCallback((accessToken: string, refreshToken: string, userData: User) => {
     localStorage.setItem(ACCESS_KEY, accessToken);
     localStorage.setItem(REFRESH_KEY, refreshToken);
     localStorage.setItem(USER_KEY, JSON.stringify(userData));
     setUser(userData);
-  };
+  }, []);
 
-  const logout = () => {
-    const refreshToken = localStorage.getItem(REFRESH_KEY);
-    if (refreshToken) {
-      api.post('/auth/logout', { refreshToken }).catch(() => {});
+  const logout = useCallback(() => {
+    const token = localStorage.getItem(REFRESH_KEY);
+    if (token) {
+      api.post('/auth/logout', { refreshToken: token }).catch(() => {});
     }
     clearStorage();
     setUser(null);
     if (typeof window !== 'undefined') {
       window.location.href = '/';
     }
-  };
+  }, []);
 
-  const refreshTokens = async (): Promise<string | null> => {
-    const refreshToken = localStorage.getItem(REFRESH_KEY);
-    if (!refreshToken) return null;
+  const refreshTokens = useCallback(async (): Promise<string | null> => {
+    const token = localStorage.getItem(REFRESH_KEY);
+    if (!token) return null;
 
     try {
-      const res = await api.post('/auth/refresh', { refreshToken });
+      const res = await api.post('/auth/refresh', { refreshToken: token });
       localStorage.setItem(ACCESS_KEY, res.data.accessToken);
       localStorage.setItem(REFRESH_KEY, res.data.refreshToken);
       return res.data.accessToken;
@@ -58,13 +63,7 @@ export function useAuth() {
       setUser(null);
       return null;
     }
-  };
-
-  const clearStorage = () => {
-    localStorage.removeItem(ACCESS_KEY);
-    localStorage.removeItem(REFRESH_KEY);
-    localStorage.removeItem(USER_KEY);
-  };
+  }, []);
 
   return { user, loading, login, logout, refreshTokens };
 }

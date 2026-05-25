@@ -1,19 +1,12 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Users, MessageSquare } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useUIStore } from '../../stores/ui.store';
 
-interface HUDOverlayProps {
-  side: 'queue' | 'chat';
-  title: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-}
-
-export function HUDToggle({ side, label, icon, count }: { side: 'queue' | 'chat'; label: string; icon: React.ReactNode; count?: number }) {
-  const toggle = useUIStore((s) => side === 'queue' ? s.toggleQueue : s.toggleChat);
-  const isOpen = useUIStore((s) => side === 'queue' ? s.queueOpen : s.chatOpen);
+export function HUDToggle({ label, icon, count }: { label: string; icon: React.ReactNode; count?: number }) {
+  const isOpen = useUIStore((s) => s.chatOpen);
+  const toggle = useUIStore((s) => s.toggleChat);
 
   return (
     <button
@@ -27,11 +20,7 @@ export function HUDToggle({ side, label, icon, count }: { side: 'queue' | 'chat'
       {icon}
       <span className="hidden sm:inline">{label}</span>
       {count !== undefined && (
-        <span className={`h-5 min-w-[20px] flex items-center justify-center rounded-full text-[10px] font-bold px-1.5 transition-all ${
-          side === 'chat'
-            ? 'bg-rose-600 text-white animate-pulse shadow-md shadow-rose-600/30'
-            : 'bg-zinc-800 text-zinc-400'
-        }`}>
+        <span className="h-5 min-w-[20px] flex items-center justify-center rounded-full text-[10px] font-bold px-1.5 bg-rose-600 text-white animate-pulse shadow-md shadow-rose-600/30">
           {count}
         </span>
       )}
@@ -39,8 +28,8 @@ export function HUDToggle({ side, label, icon, count }: { side: 'queue' | 'chat'
   );
 }
 
-export function HUDDrawer({ side, title, icon, children }: HUDOverlayProps) {
-  const isOpen = useUIStore((s) => side === 'queue' ? s.queueOpen : s.chatOpen);
+export function HUDDrawer({ title, icon, children }: { title: string; icon: React.ReactNode; children: React.ReactNode }) {
+  const isOpen = useUIStore((s) => s.chatOpen);
   const close = useUIStore((s) => s.closeAll);
 
   return (
@@ -70,7 +59,7 @@ export function HUDDrawer({ side, title, icon, children }: HUDOverlayProps) {
                 <X size={16} />
               </button>
             </div>
-            <div className={`flex-1 p-4 min-h-0 ${side === 'chat' ? 'flex flex-col' : 'overflow-y-auto'}`}>
+            <div className="flex-1 p-4 min-h-0 flex flex-col">
               {children}
             </div>
           </motion.div>
