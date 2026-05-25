@@ -1,9 +1,11 @@
+import { Room } from '@prisma/client';
 import { prisma } from '../utils/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 import { RoomWithDetails, RoomListItem } from '../types/room.types.js';
 import { LeaderboardEntry } from '../types/game.types.js';
 import { BroadcastService } from './broadcast.service.js';
+import { randomizeTarget, getRoomLeaderboard } from './helpers.js';
 
 const ROUND_DURATION_MS = 60_000;
 
@@ -18,8 +20,14 @@ export class RoomService {
   /**
    * Creates a new room. No game state is created — players
    * receive their own GameState when they join.
+   *
+   * @param ownerId - The user creating the room
+   * @param name - Display name for the room
+   * @param maxPlayers - Optional cap on concurrent players (null = unlimited)
+   * @returns The newly created room
+   * @throws AppError if the room name is invalid (Prisma constraint)
    */
-  static async createRoom(ownerId: string, name: string, maxPlayers: number | null = null) {
+  static async createRoom(ownerId: string, name: string, maxPlayers: number | null = null): Promise<Room> {
     const room = await prisma.room.create({
       data: {
         name,
@@ -36,6 +44,8 @@ export class RoomService {
   /**
    * Returns all non-idle rooms ordered by newest first,
    * with the count of active players (GameState rows).
+   *
+   * @returns Array of rooms with player counts
    */
   static async getRooms(): Promise<RoomListItem[]> {
     const rooms = await prisma.room.findMany({
@@ -59,6 +69,10 @@ export class RoomService {
 
   /**
    * Fetches room details including players, chat messages, and game states.
+   *
+   * @param roomId - The room to fetch
+   * @returns Room details with players and chat, or null if not found
+   * @throws AppError if the Prisma query fails
    */
   static async getRoomDetails(roomId: string): Promise<RoomWithDetails | null> {
     const room = await prisma.room.findUnique({
@@ -89,6 +103,11 @@ export class RoomService {
 
   /**
    * Adds a user to a room and creates their personal GameState.
+   *
+   * @param roomId - Target room
+   * @param userId - The joining user
+   * @returns Room details including the new player, or null if room not found
+   * @throws AppError if the room is full
    */
   static async joinRoom(roomId: string, userId: string): Promise<RoomWithDetails | null> {
     const room = await prisma.room.findUnique({
@@ -109,13 +128,7 @@ export class RoomService {
       if (room.maxPlayers !== null && playerCount >= room.maxPlayers) {
         throw new AppError('Room is full');
       }
-      // Create personal GameState with random target different from start position
-      let targetX = Math.floor(Math.random() * room.boardSize);
-      let targetY = Math.floor(Math.random() * room.boardSize);
-      while (targetX === 4 && targetY === 4) {
-        targetX = Math.floor(Math.random() * room.boardSize);
-        targetY = Math.floor(Math.random() * room.boardSize);
-      }
+      const { x: targetX, y: targetY } = randomizeTarget(room.boardSize, 4, 4);
 
       await prisma.gameState.create({
         data: {
@@ -135,6 +148,9 @@ export class RoomService {
 
   /**
    * Removes a user from a room and deletes their GameState.
+   *
+   * @param roomId - The room to leave
+   * @param userId - The leaving user
    */
   static async leaveRoom(roomId: string, userId: string): Promise<void> {
     try {
@@ -149,33 +165,28 @@ export class RoomService {
   /**
    * Returns the top-N players in a room sorted by score descending,
    * plus the requesting user's own entry.
+   *
+   * @param roomId - Target room
+   * @param userId - The requesting user (to find their rank)
+   * @param topN - How many top players to include (default 20)
+   * @returns Top players and requesting user's entry
    */
   static async getLeaderboard(roomId: string, userId: string, topN = 20): Promise<{ top: LeaderboardEntry[]; me: LeaderboardEntry | null }> {
-    const gameStates = await prisma.gameState.findMany({
-      where: { roomId },
-      include: { user: { select: { nickname: true } } },
-      orderBy: { score: 'desc' },
-    });
+    const leaderboard = await getRoomLeaderboard(roomId);
 
-    const top = gameStates.slice(0, topN).map((gs) => ({
-      userId: gs.userId,
-      nickname: gs.user.nickname,
-      score: gs.score,
-    }));
+    const top = leaderboard.slice(0, topN);
+    const myEntry = leaderboard.find((e) => e.userId === userId);
 
-    const myGs = gameStates.find((gs) => gs.userId === userId);
-    const me = myGs
-      ? { userId: myGs.userId, nickname: myGs.user.nickname, score: myGs.score }
-      : null;
-
-    return { top, me };
+    return { top, me: myEntry ?? null };
   }
 
   /**
    * Starts a timed round in the room.
    * Seeds a GameState for every player currently in the room who doesn't have one.
-   * Transitions room status to `active`.
+   * Transitions room status to `active` and schedules automatic round end.
    *
+   * @param roomId - Target room
+   * @param requestingUserId - The user requesting to start (must be owner)
    * @throws AppError if the room is not found or the requester is not the owner
    */
   static async startRound(roomId: string, requestingUserId: string): Promise<void> {
@@ -197,13 +208,16 @@ export class RoomService {
       try {
         await this.endRound(roomId);
       } catch (err: any) {
-        logger.error(`[Round] Error ending round for room ${roomId}:`, err.message);
+        logger.error(`[Round] Error ending round for room ${roomId}:`, { error: err.message });
       }
     }, ROUND_DURATION_MS);
   }
 
   /**
    * Ends the current round: broadcasts final leaderboard, transitions back to lobby.
+   * No-op if the room is not found or not in `active` status.
+   *
+   * @param roomId - The room whose round is ending
    */
   static async endRound(roomId: string): Promise<void> {
     const room = await prisma.room.findUnique({ where: { id: roomId } });
@@ -214,18 +228,7 @@ export class RoomService {
       data: { status: 'lobby', roundEndsAt: null },
     });
 
-    // Broadcast final leaderboard
-    const gameStates = await prisma.gameState.findMany({
-      where: { roomId },
-      include: { user: { select: { nickname: true } } },
-      orderBy: { score: 'desc' },
-    });
-
-    const leaderboard = gameStates.map((gs) => ({
-      userId: gs.userId,
-      nickname: gs.user.nickname,
-      score: gs.score,
-    }));
+    const leaderboard = await getRoomLeaderboard(roomId);
 
     BroadcastService.broadcast(roomId, 'round_end', { leaderboard });
     BroadcastService.broadcast(null, 'rooms_updated', null);
@@ -234,19 +237,25 @@ export class RoomService {
   }
 
   /**
-   * Updates room metadata (name, maxPlayers).
+   * Updates room name and/or max player count.
    * Only the room owner may edit the room.
+   *
+   * @param roomId - The room to update
+   * @param requestingUserId - The requesting user (must be owner)
+   * @param data - Fields to update
+   * @returns Updated room details
+   * @throws AppError if the room is not found or the requester is not the owner
    */
   static async updateRoom(
     roomId: string,
     requestingUserId: string,
     data: { name?: string; maxPlayers?: number | null },
-  ) {
+  ): Promise<RoomWithDetails | null> {
     const room = await prisma.room.findUnique({ where: { id: roomId } });
     if (!room) throw new AppError('Room not found');
     if (room.ownerId !== requestingUserId) throw new AppError('Only the room owner can edit this room');
 
-    const updateData: Record<string, any> = {};
+    const updateData: Partial<Pick<Room, 'name' | 'maxPlayers'>> = {};
     if (data.name !== undefined) updateData.name = data.name;
     if (data.maxPlayers !== undefined) updateData.maxPlayers = data.maxPlayers;
 
@@ -259,6 +268,10 @@ export class RoomService {
 
   /**
    * Deletes a room and all associated records (cascade).
+   *
+   * @param roomId - The room to delete
+   * @param requestingUserId - The requesting user (must be owner)
+   * @throws AppError if the room is not found or the requester is not the owner
    */
   static async deleteRoom(roomId: string, requestingUserId: string): Promise<void> {
     const room = await prisma.room.findUnique({ where: { id: roomId } });

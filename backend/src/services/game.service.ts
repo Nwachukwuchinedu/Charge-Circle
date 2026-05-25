@@ -2,6 +2,7 @@ import { prisma } from '../utils/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
 import { MoveResult } from '../types/game.types.js';
+import { randomizeTarget } from './helpers.js';
 
 /**
  * Core game logic for moving a player's personal Energy Orb.
@@ -63,10 +64,9 @@ export class GameService {
     let newTargetY = gs.targetY;
 
     if (scored) {
-      do {
-        newTargetX = Math.floor(Math.random() * room.boardSize);
-        newTargetY = Math.floor(Math.random() * room.boardSize);
-      } while (newTargetX === toX && newTargetY === toY);
+      const target = randomizeTarget(room.boardSize, toX, toY);
+      newTargetX = target.x;
+      newTargetY = target.y;
     }
 
     const newScore = gs.score + scoreIncr;

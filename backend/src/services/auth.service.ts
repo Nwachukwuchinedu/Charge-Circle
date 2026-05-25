@@ -33,6 +33,10 @@ export class AuthService {
   /**
    * Registers a new user account and issues an access + refresh token pair.
    *
+   * @param email - User's email address (already normalized by DTO)
+   * @param nickname - Display name (already sanitised by DTO)
+   * @param password - Plain-text password (already validated for length by DTO)
+   * @returns Access + refresh token pair and user info
    * @throws AppError if the email is already registered
    */
   static async signup(email: string, nickname: string, password: string): Promise<AuthResult> {
@@ -57,6 +61,9 @@ export class AuthService {
    * Uses the same error message for both "user not found" and "wrong password"
    * to prevent email enumeration attacks.
    *
+   * @param email - User's email address
+   * @param password - Plain-text password
+   * @returns Access + refresh token pair and user info
    * @throws AppError if credentials are invalid
    */
   static async login(email: string, password: string): Promise<AuthResult> {
@@ -87,6 +94,7 @@ export class AuthService {
    * will fail — limiting the window for token theft.
    *
    * @param rawToken - The opaque refresh token string from the client
+   * @returns A new access + refresh token pair and user info
    * @throws AppError if the token is invalid, expired, or already revoked
    */
   static async refreshAccessToken(rawToken: string): Promise<AuthResult> {
@@ -113,6 +121,8 @@ export class AuthService {
 
   /**
    * Revokes a single refresh token (logout from one device).
+   *
+   * @param rawToken - The opaque refresh token string to revoke
    */
   static async revokeRefreshToken(rawToken: string): Promise<void> {
     const tokenHash = hashToken(rawToken);
@@ -124,6 +134,8 @@ export class AuthService {
 
   /**
    * Revokes every active refresh token for a user (logout from all devices).
+   *
+   * @param userId - The user whose tokens should be revoked
    */
   static async revokeAllUserTokens(userId: string): Promise<void> {
     await prisma.refreshToken.updateMany({
@@ -135,6 +147,9 @@ export class AuthService {
   /**
    * Creates and persists a new opaque refresh token.
    * The raw token is returned to the caller; only the SHA-256 hash is stored.
+   *
+   * @param userId - The user this token belongs to
+   * @returns The raw (unhashed) refresh token string
    */
   private static async createRefreshToken(userId: string): Promise<string> {
     const raw = generateRefreshToken();

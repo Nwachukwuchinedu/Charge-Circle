@@ -1,5 +1,5 @@
-import { ChatMessage } from '@prisma/client';
 import { prisma } from '../utils/prisma.js';
+import { ChatMessageWithUser } from '../types/chat.types.js';
 
 /**
  * Persists chat messages to the database.
@@ -15,8 +15,9 @@ export class ChatService {
    * @param userId - The sender's user ID
    * @param message - The message body (1-500 characters, validated by DTO)
    * @returns The created message including the user's nickname
+   * @throws Prisma error if the database write fails (propagated to caller)
    */
-  static async saveMessage(roomId: string, userId: string, message: string): Promise<ChatMessage & { user: { nickname: string } }> {
+  static async saveMessage(roomId: string, userId: string, message: string): Promise<ChatMessageWithUser> {
     return prisma.chatMessage.create({
       data: { roomId, userId, message },
       include: { user: { select: { nickname: true } } },
