@@ -12,37 +12,42 @@ A simultaneous-play grid game where operators navigate Energy Orbs across a shar
 
 ## Architecture Overview
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         Frontend (Next.js 16)                        │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────────────────┐  │
-│  │ TanStack │  │  Framer  │  │ Zustand  │  │ Socket.io Client   │  │
-│  │  Query   │  │  Motion  │  │ (stores) │  │  (useSocket)       │  │
-│  └──────────┘  └──────────┘  └──────────┘  └───────┬────────────┘  │
-│                                                      │               │
-│                       HTTP (REST /api/auth/*)         │ WebSocket     │
-│                                                      │               │
-├──────────────────────────────────────────────────────┼───────────────┤
-│                     Backend (Express)                 │               │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────┴──────────┐  │
-│  │   Auth   │  │   Game   │  │   Room   │  │   Socket.io       │  │
-│  │ Service  │  │ Service  │  │ Service  │  │   Server          │  │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘  │  (handlers)       │  │
-│       │              │             │         └───────────────────┘  │
-│  ┌────┴──────────────┴─────────────┴─────────────────────────────┐  │
-│  │                     Prisma ORM                                 │  │
-│  └──────────────────────────────┬────────────────────────────────┘  │
-│                                 │                                   │
-│                    ┌────────────┴────────────┐                      │
-│                    │  PostgreSQL (Neon)       │                      │
-│                    │  Serverless + WebSocket  │                      │
-│                    └─────────────────────────┘                      │
-│                                                                     │
-│  ┌──────────────────────────────────────────────────────────────┐  │
-│  │  Redis (Upstash) — Socket.io Pub/Sub Adapter                 │  │
-│  │  (Required — server exits on missing REDIS_URL)              │  │
-│  └──────────────────────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph Frontend["Frontend (Next.js 16)"]
+        TQ[TanStack Query]
+        FM[Framer Motion]
+        ZS[Zustand]
+        SC[Socket.io Client]
+    end
+
+    subgraph Backend["Backend (Express)"]
+        AS[Auth Service]
+        GS[Game Service]
+        RS[Room Service]
+        SI[Socket.io Server]
+    end
+
+    PO[Prisma ORM]
+    PG[("PostgreSQL (Neon)")]
+    RD[("Redis (Upstash)")]
+
+    TQ -- "HTTP /api/auth/*" --> AS
+    SC == "WebSocket" ==> SI
+    SI --> RS
+    SI --> GS
+    AS --> PO
+    GS --> PO
+    RS --> PO
+    PO --> PG
+    SI -. "pub/sub" .-> RD
+
+    classDef frontend fill:#2d1b69,stroke:#7c3aed,color:#e0e7ff
+    classDef backend fill:#0c4a6e,stroke:#06b6d4,color:#cffafe
+    classDef data fill:#1a1a2e,stroke:#6366f1,color:#e0e7ff
+    class TQ,FM,ZS,SC frontend
+    class AS,GS,RS,SI backend
+    class PO,PG,RD data
 ```
 
 ---

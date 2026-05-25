@@ -2,7 +2,16 @@ import winston from 'winston';
 import fs from 'fs';
 import path from 'path';
 
-const isProduction = process.env.NODE_ENV === 'production' || process.env.RENDER === 'true';
+// Automatically detect environment.
+// In local development, we run typescript files directly via tsx (e.g. tsx watch).
+// In production/Render, we run the compiled javascript files (node dist/server.js).
+const isDevelopment =
+  process.env.NODE_ENV === 'development' ||
+  process.env.NODE_ENV === 'test' ||
+  import.meta.url.endsWith('.ts') ||
+  process.argv.some(arg => arg.includes('tsx') || arg.includes('ts') || arg.includes('watch'));
+
+const isProduction = !isDevelopment;
 
 const customFormat = winston.format.printf(({ level, message, timestamp, ...meta }) => {
   return `${timestamp} [${level.toUpperCase()}]: ${message} ${
@@ -52,3 +61,4 @@ export const logger = winston.createLogger({
   ),
   transports,
 });
+
