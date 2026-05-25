@@ -1,4 +1,4 @@
-import { Room } from '@prisma/client';
+import { Room, Prisma } from '@prisma/client';
 import { prisma } from '../utils/prisma.js';
 import { AppError } from '../utils/errors.js';
 import { logger } from '../utils/logger.js';
@@ -134,8 +134,8 @@ export class RoomService {
         data: {
           roomId,
           userId,
-          pieceX: 4,
-          pieceY: 4,
+          pieceX: Math.floor(room.boardSize / 2),
+          pieceY: Math.floor(room.boardSize / 2),
           targetX,
           targetY,
           score: 0,
@@ -159,8 +159,11 @@ export class RoomService {
       await prisma.gameState.delete({
         where: { roomId_userId: { roomId, userId } },
       });
-    } catch {
-      // User may already have been cleaned up
+    } catch (error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2025') {
+        return;
+      }
+      throw error;
     }
   }
 

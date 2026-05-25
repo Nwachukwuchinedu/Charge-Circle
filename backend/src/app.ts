@@ -6,8 +6,8 @@ import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 
 import './config/env.js';
-import { setupRedis, pubClient, subClient } from './utils/redis.js';
-import { startDbKeepalive, stopDbKeepalive, prisma } from './utils/prisma.js';
+import { setupRedis } from './utils/redis.js';
+import { startDbKeepalive } from './utils/prisma.js';
 import { BroadcastService } from './services/broadcast.service.js';
 import { RoomService } from './services/room.service.js';
 import { logger } from './utils/logger.js';
@@ -17,7 +17,6 @@ import { setupGameHandlers } from './socket/game.handler.js';
 import { setupChatHandlers } from './socket/chat.handler.js';
 import authRoutes from './routes/auth.routes.js';
 import { ApiResponse } from './utils/api.response.js';
-import { env } from './config/env.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -85,30 +84,4 @@ io.on('connection', (socket) => {
   });
 });
 
-const PORT = env.PORT;
-
-httpServer.listen(PORT, () => {
-  logger.info(`Charge Circle backend running on port ${PORT}`);
-});
-
-// ── Graceful shutdown ───────────────────────────────────────────────────────
-const shutdown = (signal: string) => {
-  logger.info(`[Shutdown] Received ${signal}. Closing servers...`);
-  void io.close(() => {
-    httpServer.close(() => {
-      stopDbKeepalive();
-      void prisma.$disconnect().finally(() => {
-        void Promise.all([
-          pubClient?.quit(),
-          subClient?.quit(),
-        ]).catch(() => {}).finally(() => {
-          logger.info('[Shutdown] All connections closed. Goodbye.');
-          process.exit(0);
-        });
-      });
-    });
-  });
-};
-
-process.on('SIGTERM', () => shutdown('SIGTERM'));
-process.on('SIGINT', () => shutdown('SIGINT'));
+export { app, io, httpServer };

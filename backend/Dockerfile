@@ -19,4 +19,4 @@ EXPOSE 4000
 USER node
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:4000/health || exit 1
-CMD npx prisma migrate deploy && node dist/app.js
+CMD npx prisma migrate deploy && node dist/server.js

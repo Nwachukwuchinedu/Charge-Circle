@@ -2,14 +2,14 @@
   "name": "charge-circle-backend",
   "version": "1.0.0",
   "description": "Backend for Charge Circle Collaborative Grid game",
-  "main": "dist/app.js",
+  "main": "dist/server.js",
   "type": "module",
   "engines": {
     "node": ">=22"
   },
   "scripts": {
-    "start": "node dist/app.js",
-    "dev": "tsx watch src/app.ts",
+    "start": "node dist/server.js",
+    "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit"

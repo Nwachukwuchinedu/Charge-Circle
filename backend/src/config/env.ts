@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import { logger } from '../utils/logger.js';
 
 function requireEnv(name: string, hint?: string): string {

@@ -1,7 +1,7 @@
 import { Prisma } from '@prisma/client';
 
 /** Public player summary sent to clients in room payloads. */
-export interface PlayerSummary {
+interface PlayerSummary {
   id: string;
   nickname: string;
 }
