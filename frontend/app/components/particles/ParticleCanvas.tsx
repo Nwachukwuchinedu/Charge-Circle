@@ -64,19 +64,47 @@ export default function ParticleCanvas({
 
       // Grid lines
       if (gridLines) {
-        ctx.strokeStyle = 'rgba(99, 102, 241, 0.03)';
-        ctx.lineWidth = 1;
-        for (let x = 0; x < canvas.width; x += 60) {
+        const cx = mouseInteraction && mouseX > -500 ? mouseX : canvas.width / 2;
+        const cy = mouseInteraction && mouseY > -500 ? mouseY : canvas.height / 2;
+        const radius = Math.max(canvas.width, canvas.height) * 0.8;
+        
+        const gridGrad = ctx.createRadialGradient(cx, cy, 50, cx, cy, radius);
+        gridGrad.addColorStop(0, 'rgba(99, 102, 241, 0.08)');
+        gridGrad.addColorStop(0.3, 'rgba(99, 102, 241, 0.03)');
+        gridGrad.addColorStop(1, 'rgba(99, 102, 241, 0.005)');
+
+        ctx.strokeStyle = gridGrad;
+        ctx.lineWidth = 0.75;
+        
+        const spacing = 70;
+        for (let x = 0; x < canvas.width; x += spacing) {
           ctx.beginPath();
           ctx.moveTo(x, 0);
           ctx.lineTo(x, canvas.height);
           ctx.stroke();
         }
-        for (let y = 0; y < canvas.height; y += 60) {
+        for (let y = 0; y < canvas.height; y += spacing) {
           ctx.beginPath();
           ctx.moveTo(0, y);
           ctx.lineTo(canvas.width, y);
           ctx.stroke();
+        }
+
+        // Holographic crossing dots
+        ctx.fillStyle = 'rgba(6, 182, 212, 0.25)';
+        for (let x = 0; x < canvas.width; x += spacing) {
+          for (let y = 0; y < canvas.height; y += spacing) {
+            const dx = x - cx;
+            const dy = y - cy;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < 400) {
+              const alpha = (1 - dist / 400) * 0.4;
+              ctx.fillStyle = `rgba(6, 182, 212, ${alpha})`;
+              ctx.beginPath();
+              ctx.arc(x, y, 1.2, 0, Math.PI * 2);
+              ctx.fill();
+            }
+          }
         }
       }
 

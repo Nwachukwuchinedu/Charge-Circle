@@ -6,8 +6,8 @@ import { Zap, Users, Radio, Shield, BarChart3, Globe } from 'lucide-react';
 const features = [
   { icon: Zap, title: 'Real-Time Moves', description: 'Every move propagates instantly via WebSockets. No refresh, no lag — just pure real-time gameplay.', color: 'text-indigo-400' },
   { icon: Users, title: 'Multiplayer Rooms', description: 'Create or join rooms with custom player limits. Play 1v1 or with a group in the same grid.', color: 'text-cyan-400' },
-  { icon: Radio, title: 'Live Grid View', description: 'Watch the Energy Orb glide across the canvas as each player takes their turn in sequence.', color: 'text-emerald-400' },
-  { icon: Shield, title: 'Fair Turn Queue', description: 'The server rotates turns automatically. Everyone gets equal play time — no skipping, no queue cutting.', color: 'text-amber-400' },
+  { icon: Radio, title: 'Live Grid View', description: 'Watch all energy orbs glide across the canvas in real time as operators act simultaneously.', color: 'text-emerald-400' },
+  { icon: Shield, title: 'Simultaneous Play', description: 'No turn queues or waiting. Every operator moves independently and instantly. Action without delays.', color: 'text-amber-400' },
   { icon: BarChart3, title: 'Live Scoring', description: 'Score updates broadcast to the room instantly. Track your charges and compete on the leaderboard.', color: 'text-rose-400' },
   { icon: Globe, title: 'Scalable Network', description: 'Built for thousands of concurrent players on Neon serverless Postgres with Redis-powered Socket.io.', color: 'text-purple-400' },
 ];
