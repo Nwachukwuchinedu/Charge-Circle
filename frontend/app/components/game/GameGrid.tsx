@@ -196,32 +196,52 @@ export default function GameGrid({ piece, target, boardSize = 10, myTurn, onMove
     return () => cancelAnimationFrame(animationId);
   }, [piece, target, boardSize, myTurn, hoverTile, canvasSize]);
 
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+  const getGridFromEvent = (clientX: number, clientY: number) => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas) return null;
     const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+    const x = clientX - rect.left;
+    const y = clientY - rect.top;
     const tileSize = rect.width / boardSize;
     const gridX = Math.floor(x / tileSize);
     const gridY = Math.floor(y / tileSize);
     if (gridX >= 0 && gridX < boardSize && gridY >= 0 && gridY < boardSize) {
-      const isAdjacent = Math.abs(gridX - piece.x) <= 1 && Math.abs(gridY - piece.y) <= 1 && (gridX !== piece.x || gridY !== piece.y);
-      if (myTurn && isAdjacent) onMove(gridX, gridY);
+      return { x: gridX, y: gridY };
     }
+    return null;
+  };
+
+  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const grid = getGridFromEvent(e.clientX, e.clientY);
+    if (!grid) return;
+    const isAdjacent = Math.abs(grid.x - piece.x) <= 1 && Math.abs(grid.y - piece.y) <= 1 && (grid.x !== piece.x || grid.y !== piece.y);
+    if (myTurn && isAdjacent) onMove(grid.x, grid.y);
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    const touch = e.changedTouches[0];
+    if (!touch) return;
+    const grid = getGridFromEvent(touch.clientX, touch.clientY);
+    if (!grid) return;
+    const isAdjacent = Math.abs(grid.x - piece.x) <= 1 && Math.abs(grid.y - piece.y) <= 1 && (grid.x !== piece.x || grid.y !== piece.y);
+    if (myTurn && isAdjacent) onMove(grid.x, grid.y);
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const rect = canvas.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const tileSize = rect.width / boardSize;
-    const gridX = Math.floor(x / tileSize);
-    const gridY = Math.floor(y / tileSize);
-    if (gridX >= 0 && gridX < boardSize && gridY >= 0 && gridY < boardSize) {
-      if (!hoverTile || hoverTile.x !== gridX || hoverTile.y !== gridY) setHoverTile({ x: gridX, y: gridY });
+    const grid = getGridFromEvent(e.clientX, e.clientY);
+    if (grid) {
+      if (!hoverTile || hoverTile.x !== grid.x || hoverTile.y !== grid.y) setHoverTile(grid);
+    } else {
+      setHoverTile(null);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    const touch = e.touches[0];
+    if (!touch) return;
+    const grid = getGridFromEvent(touch.clientX, touch.clientY);
+    if (grid) {
+      if (!hoverTile || hoverTile.x !== grid.x || hoverTile.y !== grid.y) setHoverTile(grid);
     } else {
       setHoverTile(null);
     }
@@ -237,9 +257,11 @@ export default function GameGrid({ piece, target, boardSize = 10, myTurn, onMove
           width={canvasSize}
           height={canvasSize}
           onClick={handleCanvasClick}
+          onTouchEnd={handleTouchEnd}
           onMouseMove={handleMouseMove}
+          onTouchMove={handleTouchMove}
           onMouseLeave={handleMouseLeave}
-          className={`block rounded-lg border border-zinc-800/80 shadow-2xl ${
+          className={`block rounded-lg border border-zinc-800/80 shadow-2xl touch-none ${
             myTurn ? 'cursor-pointer' : 'cursor-not-allowed opacity-95'
           }`}
         />

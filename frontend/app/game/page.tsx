@@ -13,7 +13,7 @@ import { HUDToggle, HUDDrawer } from '../components/game/HUDOverlay';
 import { LoadingSpinner, toast } from '../components/ui';
 import { GameState, Room, GameStateDelta, ChatMessage, LeaderboardEntry } from '../types';
 import { useUIStore } from '../stores/ui.store';
-import { Play, MessageSquare, LogOut, Zap, LayoutGrid } from 'lucide-react';
+import { Play, MessageSquare, LogOut, Zap, LayoutGrid, Trophy } from 'lucide-react';
 
 function GameContent() {
   const searchParams = useSearchParams();
@@ -92,36 +92,36 @@ function GameContent() {
       <div className="absolute bottom-0 right-1/4 w-[500px] h-[500px] rounded-full bg-cyan-900/10 blur-[120px] pointer-events-none" />
 
       {/* Top bar */}
-      <header className="relative z-30 flex items-center justify-between px-4 py-2.5 border-b border-zinc-900/60 bg-[#060709]/80 backdrop-blur-md shrink-0">
-        <div className="flex items-center gap-3">
+      <header className="relative z-30 flex items-center justify-between px-2 sm:px-4 py-2 border-b border-zinc-900/60 bg-[#060709]/80 backdrop-blur-md shrink-0">
+        <div className="flex items-center gap-1 sm:gap-3 min-w-0">
           <button
             onClick={emitLeaveRoom}
-            className="flex items-center gap-1.5 text-xs text-rose-400 hover:text-rose-300 bg-rose-950/20 hover:bg-rose-900/20 border border-rose-900/30 px-3 py-1.5 rounded-lg cursor-pointer transition-all"
+            className="flex items-center gap-1 text-xs text-rose-400 hover:text-rose-300 bg-rose-950/20 hover:bg-rose-900/20 border border-rose-900/30 px-2 sm:px-3 py-1.5 rounded-lg cursor-pointer transition-all shrink-0"
           >
-            <LogOut size={14} className="rotate-180" /> Leave
+            <LogOut size={14} className="rotate-180" /> <span className="max-sm:hidden">Leave</span>
           </button>
-          <div className="hidden sm:block text-xs text-zinc-500">
-            <span className="text-indigo-300 font-medium">{room.name}</span>
-            <span className="mx-2">·</span>
-            {room.boardSize}x{room.boardSize}
-            <span className="mx-2">·</span>
-            <span className={isActive ? 'text-emerald-400' : 'text-amber-400'}>
+          <div className="hidden sm:flex items-center gap-1 text-xs text-zinc-500 min-w-0">
+            <span className="text-indigo-300 font-medium truncate max-w-[120px]">{room.name}</span>
+            <span className="mx-1 shrink-0">·</span>
+            <span className="shrink-0">{room.boardSize}x{room.boardSize}</span>
+            <span className="mx-1 shrink-0">·</span>
+            <span className={`shrink-0 ${isActive ? 'text-emerald-400' : 'text-amber-400'}`}>
               {isActive ? 'Active' : 'Lobby'}
             </span>
             {!isActive && room.ownerId === user.id && (
               <button
                 onClick={emitStartRound}
-                className="ml-2 flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 bg-emerald-950/20 hover:bg-emerald-900/20 border border-emerald-900/30 px-2.5 py-1 rounded-lg cursor-pointer transition-all"
+                className="ml-1 flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 bg-emerald-950/20 hover:bg-emerald-900/20 border border-emerald-900/30 px-2 py-1 rounded-lg cursor-pointer transition-all shrink-0"
               >
-                <Play size={12} /> Start Round
+                <Play size={12} /> Start
               </button>
             )}
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-1 sm:gap-3 shrink-0">
           <RoundTimer roundEndsAt={room.roundEndsAt} />
-          <div className="flex items-center gap-1.5 text-xs text-zinc-500">
+          <div className="flex items-center gap-1 text-xs text-zinc-500">
             <Zap size={12} className="text-cyan-400" />
             <span className="font-mono text-cyan-400 font-bold text-sm">{gameState.score}</span>
             <span className="hidden sm:inline">GW</span>
@@ -160,6 +160,17 @@ function GameContent() {
 
           {/* Floating controls */}
           <div className="absolute bottom-4 right-4 flex items-center gap-2 z-30">
+            <button
+              onClick={() => setLeaderboardOpen((v) => !v)}
+              className={`md:hidden p-2.5 rounded-xl border transition-all cursor-pointer ${
+                leaderboardOpen
+                  ? 'bg-indigo-500/20 border-indigo-500/30 text-indigo-400'
+                  : 'bg-zinc-900/80 border-zinc-700/50 text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/80'
+              }`}
+              title="Toggle leaderboard"
+            >
+              <Trophy size={16} />
+            </button>
             <HUDToggle label="Chat" icon={<MessageSquare size={16} />} count={unreadCount > 0 ? unreadCount : undefined} />
           </div>
 
@@ -168,10 +179,7 @@ function GameContent() {
           </HUDDrawer>
         </div>
 
-        {/* Leaderboard sidebar */}
-        {leaderboardOpen && (
-          <Leaderboard entries={leaderboard} userId={user.id} isOpen />
-        )}
+        <Leaderboard entries={leaderboard} userId={user.id} isOpen={leaderboardOpen} onClose={() => setLeaderboardOpen(false)} />
       </main>
     </div>
   );

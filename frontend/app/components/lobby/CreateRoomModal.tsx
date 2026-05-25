@@ -30,7 +30,8 @@ export default function CreateRoomModal({
       <Button
         onClick={() => setOpen(true)}
         leftIcon={<Plus size={18} />}
-        className="fixed bottom-6 right-6 z-40 shadow-2xl shadow-indigo-500/30"
+        className="fixed bottom-4 sm:bottom-6 right-4 sm:right-6 z-40 shadow-2xl shadow-indigo-500/30"
+        style={{ marginBottom: 'env(safe-area-inset-bottom, 0px)' }}
       >
         <span className="hidden sm:inline">Initialize Room</span>
       </Button>
@@ -48,6 +49,7 @@ export default function CreateRoomModal({
           <Input
             label="Player Limit (optional — leave blank for unlimited)"
             type="number"
+            inputMode="numeric"
             placeholder="e.g. 20"
             min={2}
             value={values.maxPlayers ?? ''}

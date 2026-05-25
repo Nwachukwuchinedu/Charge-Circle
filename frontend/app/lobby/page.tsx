@@ -71,13 +71,13 @@ export default function Lobby() {
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Logo size="sm" />
-            <div className="hidden sm:block">
+            <div className="max-sm:hidden sm:block">
               <h1 className="text-sm font-bold tracking-tight text-white">Charge Circle</h1>
             </div>
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="hidden sm:flex items-center gap-1.5 text-xs text-zinc-500">
+            <div className="max-sm:hidden sm:flex items-center gap-1.5 text-xs text-zinc-500">
               <Radio size={12} className="text-indigo-400" />
               Operator: <span className="text-emerald-400 font-medium">{user.nickname}</span>
             </div>

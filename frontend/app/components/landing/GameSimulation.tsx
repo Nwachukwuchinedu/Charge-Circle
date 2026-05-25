@@ -126,9 +126,9 @@ export default function GameSimulation() {
       </div>
 
       {/* Main Grid View */}
-      <div className="p-4 sm:p-5 flex flex-col sm:flex-row gap-4 flex-1">
+      <div className="p-3 sm:p-5 flex flex-col sm:flex-row gap-3 sm:gap-4 flex-1">
         {/* The Grid Canvas Grid */}
-        <div className="relative aspect-square flex-1 bg-[#050608] rounded-xl border border-zinc-900 p-2 overflow-hidden">
+        <div className="relative aspect-square flex-1 bg-[#050608] rounded-xl border border-zinc-900 p-1 sm:p-2 overflow-hidden min-w-0">
           {/* Coordinates Labels - Top & Left */}
           <div className="absolute inset-0 grid grid-cols-8 grid-rows-8 pointer-events-none opacity-20 text-[8px] font-mono text-zinc-600">
             {Array.from({ length: 64 }).map((_, idx) => {
