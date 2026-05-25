@@ -143,7 +143,7 @@ function GameContent() {
       {/* Main area */}
       <main className="relative flex-1 flex min-h-0">
         {/* Board */}
-        <div className="flex-1 flex flex-col min-h-0 relative">
+        <div className="flex-1 flex flex-col min-h-0 relative overflow-hidden">
           {!isActive && (
             <div className="absolute top-2 left-1/2 -translate-x-1/2 z-40 px-4 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-medium backdrop-blur-sm">
               Waiting for round to start...

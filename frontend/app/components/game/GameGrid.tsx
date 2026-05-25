@@ -250,8 +250,8 @@ export default function GameGrid({ piece, target, boardSize = 10, myTurn, onMove
   const handleMouseLeave = () => setHoverTile(null);
 
   return (
-    <div ref={containerRef} className="relative flex-1 flex items-center justify-center w-full h-full min-h-0 p-2">
-      <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-[#0e0f13]/60 shadow-2xl shadow-black/80 backdrop-blur-md">
+    <div ref={containerRef} className="relative flex-1 flex items-center justify-center w-full h-full min-h-0 p-1 sm:p-2">
+      <div className="relative overflow-hidden rounded-2xl border border-zinc-800 bg-[#0e0f13]/60 shadow-2xl shadow-black/80 backdrop-blur-md max-w-full max-h-full box-border">
         <canvas
           ref={canvasRef}
           width={canvasSize}
@@ -261,7 +261,7 @@ export default function GameGrid({ piece, target, boardSize = 10, myTurn, onMove
           onMouseMove={handleMouseMove}
           onTouchMove={handleTouchMove}
           onMouseLeave={handleMouseLeave}
-          className={`block rounded-lg border border-zinc-800/80 shadow-2xl touch-none ${
+          className={`block rounded-lg border border-zinc-800/80 shadow-2xl touch-none max-w-full max-h-full box-border ${
             myTurn ? 'cursor-pointer' : 'cursor-not-allowed opacity-95'
           }`}
         />
