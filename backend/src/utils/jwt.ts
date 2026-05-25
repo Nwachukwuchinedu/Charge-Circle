@@ -1,8 +1,9 @@
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { TokenPayload } from '../types/auth.types.js';
+import { getJwtSecret } from '../config/env.js';
 
-const ACCESS_SECRET = process.env.JWT_ACCESS_SECRET || process.env.JWT_SECRET;
+const ACCESS_SECRET = getJwtSecret();
 
 /**
  * Signs a short-lived access JWT (15 minutes).
@@ -21,7 +22,7 @@ export function signAccessToken(userId: string, nickname: string): string {
  */
 export function verifyAccessToken(token: string): TokenPayload | null {
   try {
-    return jwt.verify(token, ACCESS_SECRET) as TokenPayload;
+    return jwt.verify(token, ACCESS_SECRET) as unknown as TokenPayload;
   } catch {
     return null;
   }

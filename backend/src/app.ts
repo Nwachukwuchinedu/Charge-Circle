@@ -5,6 +5,7 @@ import { Server } from 'socket.io';
 import cors from 'cors';
 import rateLimit from 'express-rate-limit';
 
+import './config/env.js';
 import { setupRedis, pubClient, subClient } from './utils/redis.js';
 import { startDbKeepalive, stopDbKeepalive, prisma } from './utils/prisma.js';
 import { BroadcastService } from './services/broadcast.service.js';
@@ -16,12 +17,7 @@ import { setupGameHandlers } from './socket/game.handler.js';
 import { setupChatHandlers } from './socket/chat.handler.js';
 import authRoutes from './routes/auth.routes.js';
 import { ApiResponse } from './utils/api.response.js';
-
-// ── Startup validation ──────────────────────────────────────────────────────
-if (!process.env.JWT_ACCESS_SECRET && !process.env.JWT_SECRET) {
-  logger.error('[Startup] JWT_ACCESS_SECRET (or JWT_SECRET) is required. Set it in .env or Render Dashboard.');
-  process.exit(1);
-}
+import { env } from './config/env.js';
 
 const app = express();
 const httpServer = createServer(app);
@@ -89,7 +85,7 @@ io.on('connection', (socket) => {
   });
 });
 
-const PORT = process.env.PORT || 4000;
+const PORT = env.PORT;
 
 httpServer.listen(PORT, () => {
   logger.info(`Charge Circle backend running on port ${PORT}`);
@@ -98,17 +94,18 @@ httpServer.listen(PORT, () => {
 // ── Graceful shutdown ───────────────────────────────────────────────────────
 const shutdown = (signal: string) => {
   logger.info(`[Shutdown] Received ${signal}. Closing servers...`);
-  const closeRedis = async () => {
-    if (pubClient) await pubClient.quit();
-    if (subClient) await subClient.quit();
-  };
-  io.close(() => {
-    httpServer.close(async () => {
+  void io.close(() => {
+    httpServer.close(() => {
       stopDbKeepalive();
-      await prisma.$disconnect();
-      await closeRedis();
-      logger.info('[Shutdown] All connections closed. Goodbye.');
-      process.exit(0);
+      void prisma.$disconnect().finally(() => {
+        void Promise.all([
+          pubClient?.quit(),
+          subClient?.quit(),
+        ]).catch(() => {}).finally(() => {
+          logger.info('[Shutdown] All connections closed. Goodbye.');
+          process.exit(0);
+        });
+      });
     });
   });
 };

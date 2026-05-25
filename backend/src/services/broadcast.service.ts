@@ -34,7 +34,11 @@ export class BroadcastService {
       this.flushInterval = setInterval(() => this.flush(), 50);
     }
     if (!this.leaderboardInterval) {
-      this.leaderboardInterval = setInterval(() => this.broadcastAllLeaderboards(), 5000);
+      this.leaderboardInterval = setInterval(() => {
+        this.broadcastAllLeaderboards().catch((err: any) =>
+          logger.error('[BroadcastService] Leaderboard broadcast error:', { error: err.message }),
+        );
+      }, 5000);
     }
   }
 

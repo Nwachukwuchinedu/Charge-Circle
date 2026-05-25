@@ -44,12 +44,8 @@ let keepaliveHandle: ReturnType<typeof setInterval> | null = null;
 export function startDbKeepalive(): void {
   if (keepaliveHandle) return;
 
-  keepaliveHandle = setInterval(async () => {
-    try {
-      await prisma.$executeRaw`SELECT 1`;
-    } catch {
-      // Silently ignored — the next query will re-establish the connection.
-    }
+  keepaliveHandle = setInterval(() => {
+    prisma.$executeRaw`SELECT 1`.catch(() => {});
   }, KEEPALIVE_INTERVAL);
 }
 

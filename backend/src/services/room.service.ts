@@ -206,12 +206,10 @@ export class RoomService {
     logger.info(`[Round] Round started in room "${room.name}" (${roomId}), ends at ${roundEndsAt.toISOString()}`);
 
     // Schedule round end
-    setTimeout(async () => {
-      try {
-        await this.endRound(roomId);
-      } catch (err: any) {
+    setTimeout(() => {
+      this.endRound(roomId).catch((err: any) => {
         logger.error(`[Round] Error ending round for room ${roomId}:`, { error: err.message });
-      }
+      });
     }, ROUND_DURATION_MS);
   }
 

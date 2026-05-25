@@ -34,7 +34,7 @@ export const setupRoomHandlers = (io: Server, socket: AuthSocket): void => {
     try {
       const parsed = CreateRoomDto.parse(data);
       const room = await RoomService.createRoom(socket.userId!, parsed.name, parsed.maxPlayers ?? null);
-      socket.join(room.id);
+      await socket.join(room.id);
       SocketResponse.broadcast(io, null, 'rooms_updated', null);
       SocketResponse.acknowledge(socket, callback, { success: true, room });
     } catch (error: any) {
@@ -46,7 +46,7 @@ export const setupRoomHandlers = (io: Server, socket: AuthSocket): void => {
     try {
       const parsed = JoinRoomDto.parse(data);
       const room = await RoomService.joinRoom(parsed.roomId, socket.userId!);
-      socket.join(room.id);
+      await socket.join(room.id);
       SocketResponse.broadcast(io.to(room.id), room.id, 'room_state_update', room);
       SocketResponse.broadcast(io, null, 'rooms_updated', null);
       SocketResponse.acknowledge(socket, callback, { success: true, room });
@@ -59,7 +59,7 @@ export const setupRoomHandlers = (io: Server, socket: AuthSocket): void => {
     try {
       const { roomId } = RoomIdDto.parse(data);
       await RoomService.leaveRoom(roomId, socket.userId!);
-      socket.leave(roomId);
+      await socket.leave(roomId);
       SocketResponse.broadcast(io, null, 'rooms_updated', null);
       SocketResponse.acknowledge(socket, callback, { success: true });
     } catch (error: any) {

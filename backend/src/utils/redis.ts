@@ -2,6 +2,7 @@ import { createClient } from 'redis';
 import { createAdapter } from '@socket.io/redis-adapter';
 import { Server } from 'socket.io';
 import { logger } from './logger.js';
+import { env } from '../config/env.js';
 
 /**
  * Attaches a Redis pub/sub adapter to the Socket.io server using
@@ -18,15 +19,7 @@ export let pubClient: ReturnType<typeof createClient> | null = null;
 export let subClient: ReturnType<typeof createClient> | null = null;
 
 export const setupRedis = async (io: Server): Promise<void> => {
-  const redisUrl = process.env.REDIS_URL;
-
-  if (!redisUrl) {
-    throw new Error(
-      'REDIS_URL is required. ' +
-      'Set it in .env (local) or Render Dashboard (production). ' +
-      'Example: rediss://default:<token>@<host>.upstash.io:6379',
-    );
-  }
+  const redisUrl = env.REDIS_URL;
 
   pubClient = createClient({ url: redisUrl });
   subClient = pubClient.duplicate();

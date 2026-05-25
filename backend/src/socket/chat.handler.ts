@@ -19,7 +19,7 @@ import { SendChatDto } from '../dto/chat.dto.js';
  * @param socket - The authenticated client socket
  */
 export const setupChatHandlers = (io: Server, socket: AuthSocket): void => {
-  socket.on('send_chat', async (data: unknown) => {
+  socket.on('send_chat', (data: unknown) => {
     try {
       if (!throttleSocket(`chat_${socket.userId}`, 500)) return;
 
