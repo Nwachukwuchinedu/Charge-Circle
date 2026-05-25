@@ -19,6 +19,8 @@ model User {
   passwordHash String   @map("password_hash")
   createdAt    DateTime @default(now()) @map("created_at")
 
+  totalScore Int  @default(0) @map("total_score")
+
   rooms         Room[]
   gameStates    GameState[]
   chatMessages  ChatMessage[]

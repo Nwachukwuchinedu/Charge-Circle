@@ -6,6 +6,7 @@ export interface AuthResult {
     id: string;
     email: string;
     nickname: string;
+    totalScore: number;
   };
 }
 

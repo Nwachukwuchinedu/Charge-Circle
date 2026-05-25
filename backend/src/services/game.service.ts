@@ -72,16 +72,22 @@ export class GameService {
     const newScore = gs.score + scoreIncr;
 
     // ── Single atomic write ─────────────────────────────────
-    const updatedState = await prisma.gameState.update({
-      where: { roomId_userId: { roomId, userId } },
-      data: {
-        pieceX: toX,
-        pieceY: toY,
-        targetX: newTargetX,
-        targetY: newTargetY,
-        score: newScore,
-      },
-    });
+    const [updatedState] = await prisma.$transaction([
+      prisma.gameState.update({
+        where: { roomId_userId: { roomId, userId } },
+        data: {
+          pieceX: toX,
+          pieceY: toY,
+          targetX: newTargetX,
+          targetY: newTargetY,
+          score: newScore,
+        },
+      }),
+      prisma.user.update({
+        where: { id: userId },
+        data: { totalScore: { increment: scoreIncr } },
+      }),
+    ]);
 
     // ── Fire-and-forget history ─────────────────────────────
     const from = { x: gs.pieceX, y: gs.pieceY };

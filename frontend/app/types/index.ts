@@ -2,6 +2,7 @@ export interface User {
   id: string;
   nickname: string;
   email: string;
+  totalScore: number;
 }
 
 export interface AuthResponse {

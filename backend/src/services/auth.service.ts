@@ -52,7 +52,7 @@ export class AuthService {
     const refreshToken = await this.createRefreshToken(user.id);
 
     logger.info(`[Auth] User registered: ${user.email}`);
-    return { accessToken, refreshToken, user: { id: user.id, email: user.email, nickname: user.nickname } };
+    return { accessToken, refreshToken, user: await this.getUserData(user.id) };
   }
 
   /**
@@ -82,7 +82,7 @@ export class AuthService {
     const accessToken = signAccessToken(user.id, user.nickname);
     const refreshToken = await this.createRefreshToken(user.id);
 
-    return { accessToken, refreshToken, user: { id: user.id, email: user.email, nickname: user.nickname } };
+    return { accessToken, refreshToken, user: await this.getUserData(user.id) };
   }
 
   /**
@@ -116,7 +116,7 @@ export class AuthService {
     const accessToken = signAccessToken(user.id, user.nickname);
     const refreshToken = await this.createRefreshToken(user.id);
 
-    return { accessToken, refreshToken, user: { id: user.id, email: user.email, nickname: user.nickname } };
+    return { accessToken, refreshToken, user: await this.getUserData(user.id) };
   }
 
   /**
@@ -161,5 +161,27 @@ export class AuthService {
     });
 
     return raw;
+  }
+
+  /**
+   * Builds the user payload for auth responses, including total cumulative score.
+   *
+   * @param userId - The user to fetch data for
+   * @returns User object with id, email, nickname, and totalScore
+   */
+  private static async getUserData(userId: string): Promise<AuthResult['user']> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { id: true, email: true, nickname: true, totalScore: true },
+    });
+
+    if (!user) throw new AppError('User not found');
+
+    return {
+      id: user.id,
+      email: user.email,
+      nickname: user.nickname,
+      totalScore: user.totalScore,
+    };
   }
 }

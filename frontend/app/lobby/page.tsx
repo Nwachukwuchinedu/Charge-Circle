@@ -55,10 +55,12 @@ export default function Lobby() {
     return <LoadingSpinner text="Initializing Node Authentication..." fullScreen />;
   }
 
+  const totalPlayers = rooms.reduce((sum, r) => sum + (r.activePlayers || 0), 0);
+
   const stats: StatItem[] = [
-    { label: 'Total Energy', value: 1247, suffix: ' GW', icon: 'zap', accent: 'indigo' },
+    { label: 'Total Energy', value: user.totalScore, suffix: ' GW', icon: 'zap', accent: 'indigo' },
     { label: 'Active Rooms', value: rooms.length, icon: 'radio', accent: 'emerald' },
-    { label: 'Online Nodes', value: rooms.reduce((sum, r) => sum + (r.activePlayers || 0), 0), icon: 'grid', accent: 'cyan' },
+    { label: 'Online Nodes', value: totalPlayers, icon: 'grid', accent: 'cyan' },
     { label: 'Grid Status', value: connected ? 100 : 0, suffix: '%', icon: 'activity', accent: connected ? 'emerald' : 'amber' },
   ];
 
