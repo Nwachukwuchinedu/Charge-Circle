@@ -232,8 +232,9 @@ export class RoomService {
     });
 
     const leaderboard = await getRoomLeaderboard(roomId);
+    const roomDetails = await this.getRoomDetails(roomId);
 
-    BroadcastService.broadcast(roomId, 'round_end', { leaderboard });
+    BroadcastService.broadcast(roomId, 'round_end', { leaderboard, room: roomDetails });
     BroadcastService.broadcast(null, 'rooms_updated', null);
 
     logger.info(`[Round] Round ended for room ${roomId}`);

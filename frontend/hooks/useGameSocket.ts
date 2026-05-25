@@ -19,10 +19,11 @@ interface UseGameSocketOptions {
   onChatMessage: (msg: ChatMessage) => void;
   onLeaderboard: (entries: LeaderboardEntry[]) => void;
   onError: (message: string) => void;
+  onRoundStart?: () => void;
 }
 
 export function useGameSocket(options: UseGameSocketOptions) {
-  const { socket, connected, roomId, userId, onRoomUpdate, onGameStateDelta, onChatMessage, onLeaderboard, onError } = options;
+  const { socket, connected, roomId, userId, onRoomUpdate, onGameStateDelta, onChatMessage, onLeaderboard, onError, onRoundStart } = options;
   const router = useRouter();
   const joinedOnce = useRef(false);
 
@@ -63,10 +64,17 @@ export function useGameSocket(options: UseGameSocketOptions) {
         onRoomUpdate(data.room,
           data.room.gameStates?.find((gs: GameState) => gs.userId === userId),
         );
+        onRoundStart?.();
       });
 
-      socket.on('round_end', () => {
-        onRoomUpdate({ status: 'lobby' } as Room);
+      socket.on('round_end', (data: { room: Room }) => {
+        if (data.room) {
+          onRoomUpdate(data.room,
+            data.room.gameStates?.find((gs: GameState) => gs.userId === userId),
+          );
+        } else {
+          onRoomUpdate({ status: 'lobby' } as Room);
+        }
       });
 
       socket.on('game_error', (data: { message: string }) => {

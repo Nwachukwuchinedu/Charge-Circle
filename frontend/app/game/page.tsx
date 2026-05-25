@@ -79,6 +79,7 @@ function GameContent() {
     onChatMessage: handleChatMessage,
     onLeaderboard: handleLeaderboard,
     onError: handleError,
+    onRoundStart: () => toast.success('Round started! ⚡'),
   });
 
   const handleMove = useCallback((newX: number, newY: number) => {
